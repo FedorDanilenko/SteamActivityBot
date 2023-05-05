@@ -1,5 +1,6 @@
 package jm.bot.steamActivityBot.telegramBot;
 
+import jm.bot.steamActivityBot.SteamApi.service.SteamInfo;
 import jm.bot.steamActivityBot.config.BotConfig;
 import jm.bot.steamActivityBot.entity.BotUser;
 import jm.bot.steamActivityBot.repository.UserRepo;
@@ -16,12 +17,17 @@ import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingC
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendAnimation;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -40,6 +46,8 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Autowired
     private UserRepo userRepo;
+    @Autowired
+    private SteamInfo steamInfo;
     final BotConfig botConfig;
 
     static final String HELP_INFO = "This bot is designed to work with SteamAPI and get different statistics of Steam users and applications.\n\n " +
@@ -51,11 +59,12 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             List<BotCommand> listOfCommands = new ArrayList<>();
             listOfCommands.add(new BotCommand("/start", "start bot and get welcome massage"));
-            listOfCommands.add(new BotCommand("/mydata", "get your data"));
-            listOfCommands.add(new BotCommand("/deletedata", "delete all your data"));
+//            listOfCommands.add(new BotCommand("/mydata", "get your data"));
+//            listOfCommands.add(new BotCommand("/deletedata", "delete all your data"));
             listOfCommands.add(new BotCommand("/help", "info how to use this bot"));
-            listOfCommands.add(new BotCommand("/settings", "set your preferences"));
-            listOfCommands.add(new BotCommand("/getAchActivity", "get user Achievements Activity"));
+//            listOfCommands.add(new BotCommand("/settings", "set your preferences"));
+//            listOfCommands.add(new BotCommand("/getSteamInfo", "get steam user info"));
+            listOfCommands.add(new BotCommand("/getAchActivity", "get user achievements activity"));
             this.execute(new SetMyCommands(listOfCommands, new BotCommandScopeDefault(), null));
 //            register(new StartCommand("start", "start"));
         } catch (TelegramApiException e) {
@@ -99,13 +108,86 @@ public class TelegramBot extends TelegramLongPollingBot {
                 case "/help":
                     sendMassage(chatId, HELP_INFO);
                     break;
+
+                case "/getSteamInfo":
+
+                    getSteamUserInfo(chatId);
+
+                    break;
                 default:
                     sendMassage(chatId, "Whatever happens, happens.");
             }
+        } else if (update.hasCallbackQuery()) {
+            String callbackData = update.getCallbackQuery().getData();
 
+            long messageId = update.getCallbackQuery().getMessage().getMessageId();
+            long chatId = update.getCallbackQuery().getMessage().getChatId();
+
+            if (callbackData.equals("SHOT_INFO_USER")) {
+                String answer = steamInfo.getInfo();
+                EditMessageText messageText = new EditMessageText();
+                messageText.setChatId(String.valueOf(chatId));
+                messageText.setText("Shot " + answer);
+                messageText.setMessageId((int) messageId);
+                try {
+                    execute(messageText);
+                } catch (TelegramApiException e) {
+                    log.error("Error occurred: " + e.getMessage());
+                }
+            } else if (callbackData.equals("All_INFO_USER")) {
+                String answer = steamInfo.getInfo();
+                EditMessageText messageText = new EditMessageText();
+                messageText.setChatId(String.valueOf(chatId));
+                messageText.setText("All " + answer);
+                messageText.setMessageId((int) messageId);
+                try {
+                    execute(messageText);
+                } catch (TelegramApiException e) {
+                    log.error("Error occurred: " + e.getMessage());
+                }
+            }
+        }
+
+
+
+    }
+
+    private void getSteamUserInfo(Long chatId) {
+
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText("How much information to give out?");
+
+        InlineKeyboardMarkup markupInLine = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
+
+        List<InlineKeyboardButton> rowInLine = new ArrayList<>();
+
+        var shortInfoButton = new InlineKeyboardButton();
+        shortInfoButton.setText("shot");
+        shortInfoButton.setCallbackData("SHOT_INFO_USER");
+
+        var allInfoButton = new InlineKeyboardButton();
+        allInfoButton.setText("all");
+        allInfoButton.setCallbackData("All_INFO_USER");
+
+        rowInLine.add(shortInfoButton);
+        rowInLine.add(allInfoButton);
+
+        rowsInLine.add(rowInLine);
+
+        markupInLine.setKeyboard(rowsInLine);
+
+        message.setReplyMarkup(markupInLine);
+
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            log.error("Error occurred: " + e.getMessage());
         }
 
     }
+
 
     private void registerUser(Chat chat) {
         if (userRepo.findById(chat.getId()).isEmpty()) {
@@ -140,6 +222,27 @@ public class TelegramBot extends TelegramLongPollingBot {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
+
+        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+
+        List<KeyboardRow> keyboardRows = new ArrayList<>();
+
+        KeyboardRow row = new KeyboardRow();
+        row.add("weather");
+        row.add("get random joke");
+
+        keyboardRows.add(row);
+
+        row = new KeyboardRow();
+        row.add("register");
+        row.add("check my data");
+        row.add("get steam info");
+
+        keyboardRows.add(row);
+
+        keyboardMarkup.setKeyboard(keyboardRows);
+
+        message.setReplyMarkup(keyboardMarkup);
 
         try {
             execute(message);

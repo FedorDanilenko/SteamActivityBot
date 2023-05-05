@@ -19,6 +19,7 @@ public class MenuList {
         listOfCommands.add(new BotCommand("/deletedata", "delete all your data"));
         listOfCommands.add(new BotCommand("/help", "info how to use this bot"));
         listOfCommands.add(new BotCommand("/settings", "set your preferences"));
+        listOfCommands.add(new BotCommand("/getSteamInfo", "gives steam user data by his id"));
     }
 
     public List<BotCommand> getListOfCommands() {
