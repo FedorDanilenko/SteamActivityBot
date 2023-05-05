@@ -1,6 +1,6 @@
-package jm.bot.steamactivitybot.config;
+package jm.bot.steamActivityBot.config;
 
-import jm.bot.steamactivitybot.service.TelegramBot;
+import jm.bot.steamActivityBot.telegramBot.TelegramBot;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.ContextRefreshedEvent;

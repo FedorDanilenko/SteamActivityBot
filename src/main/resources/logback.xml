@@ -20,7 +20,7 @@
         </encoder>
     </appender>
 
-    <logger name="jm.bot.steamactivitybot" level="debug" additivity="false">
+    <logger name="jm.bot.steamActivityBot" level="debug" additivity="false">
         <appender-ref ref="FILE-ROLLING"/>
     </logger>
 

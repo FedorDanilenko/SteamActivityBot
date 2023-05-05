@@ -1,4 +1,4 @@
-package jm.bot.steamactivitybot;
+package jm.bot.steamActivityBot;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

@@ -1,6 +1,5 @@
-package jm.bot.steamactivitybot;
+package jm.bot.steamActivityBot;
 
-import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
