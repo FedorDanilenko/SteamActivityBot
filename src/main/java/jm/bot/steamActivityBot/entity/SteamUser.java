@@ -5,6 +5,7 @@ import lombok.Data;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
+import java.time.LocalDateTime;
 
 @Data
 @Entity(name="steamUsers")
@@ -18,4 +19,15 @@ public class SteamUser {
 
     @Column(name = "avatar")
     private String avatarUrl;
+
+    @Column(name = "refister")
+    private LocalDateTime timeRegister;
+
+    @Override
+    public String toString() {
+        return "Steam User: " + userNickName + "\n" +
+                "Steam Id: "  + id + "\n" +
+                "Registration time " + timeRegister + "\n" +
+                "Avatar: "  + avatarUrl + "\n";
+    }
 }

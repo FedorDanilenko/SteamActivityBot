@@ -2,6 +2,7 @@ package jm.bot.steamActivityBot.telegramBot;
 
 import jm.bot.steamActivityBot.SteamApi.service.SteamInfo;
 import jm.bot.steamActivityBot.config.BotConfig;
+import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.BotUser;
 import jm.bot.steamActivityBot.entity.SteamUser;
 import jm.bot.steamActivityBot.repository.UserRepo;
@@ -57,11 +58,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             List<BotCommand> listOfCommands = new ArrayList<>();
             listOfCommands.add(new BotCommand("/start", "start bot and get welcome massage"));
-//            listOfCommands.add(new BotCommand("/mydata", "get your data"));
-//            listOfCommands.add(new BotCommand("/deletedata", "delete all your data"));
             listOfCommands.add(new BotCommand("/help", "info how to use this bot"));
-//            listOfCommands.add(new BotCommand("/settings", "set your preferences"));
-//            listOfCommands.add(new BotCommand("/getSteamInfo", "get steam user info"));
             listOfCommands.add(new BotCommand("/getAchActivity", "get user achievements activity"));
             this.execute(new SetMyCommands(listOfCommands, new BotCommandScopeDefault(), null));
 //            register(new StartCommand("start", "start"));
@@ -132,12 +129,12 @@ public class TelegramBot extends TelegramLongPollingBot {
             long chatId = update.getCallbackQuery().getMessage().getChatId();
 
             if (callbackData.equals(SHOT_INFO)) {
-                SteamUser steamUser = steamInfo.getShortUserInfo("76561198045167898");
-                String answer = String.valueOf(steamUser);
+                SteamUserShortInfo steamUserInfo = steamInfo.getShortUserInfo("76561198045167898");
+                String answer = String.valueOf(steamUserInfo);
                 executeEditMessageText(answer, chatId, messageId);
             } else if (callbackData.equals(ALL_INFO)) {
-                String answer = steamInfo.getInfo();
-                executeEditMessageText(answer,chatId,messageId);
+                SteamUser answer = steamInfo.getAllUserInfo("76561198045167898");
+                executeEditMessageText(String.valueOf(answer),chatId,messageId);
 
             }
         }
@@ -146,7 +143,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private void executeEditMessageText(String answer, Long chatId, long messageId) {
         EditMessageText messageText = new EditMessageText();
         messageText.setChatId(String.valueOf(chatId));
-        messageText.setText("All " + answer);
+        messageText.setText(answer);
         messageText.setMessageId((int) messageId);
         try {
             execute(messageText);
@@ -206,12 +203,13 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private void startCommandReceived(Long chatId, String name) throws InterruptedException {
+    private void startCommandReceived(Long chatId, String name) throws InterruptedException, TelegramApiException {
 
         String answer = "Hi, " + name + ", you know who else like Telegram Bot?";
 
         prepareAndSendMessage(chatId, answer);
-        sendGif(chatId, "https://media.tenor.com/dti1tvshXAoAAAAd/muscle-man.gif");
+        Thread.sleep(1000);
+        sendGif(chatId, "https://media.tenor.com/dti1tvshXAoAAAAd/muscle-man.gif"); // "CgACAgQAAxkBAAEgu61kVorN56RKTm4FyMaPG0CItmPQIgAC7gIAAnSurVHvaRDgfnDS7C8E"
         sendMassage(chatId, "MY MOM!!!");
         log.info("Replied to user " + name);
 
@@ -227,15 +225,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         List<KeyboardRow> keyboardRows = new ArrayList<>();
 
         KeyboardRow row = new KeyboardRow();
-        row.add("weather");
-        row.add("get random joke");
-
-        keyboardRows.add(row);
-
-        row = new KeyboardRow();
-        row.add("register");
-        row.add("check my data");
-        row.add("get steam info");
+        row.add("/getSteamInfo");
 
         keyboardRows.add(row);
 
@@ -247,32 +237,11 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     }
 
-    private void sendGif(long chatId, String gifUrl) {
+    private void sendGif(long chatId, String fileId) throws TelegramApiException {
         SendAnimation animation = new SendAnimation();
         animation.setChatId(String.valueOf(chatId));
-
-        try {
-            // Download gif
-            URL url = new URL(gifUrl);
-            HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
-            httpURLConnection.setRequestMethod("GET");
-            httpURLConnection.connect();
-            InputStream inputStream = httpURLConnection.getInputStream();
-            File file = new File("muscle-man.gif");
-            FileUtils.copyInputStreamToFile(inputStream, file);
-
-            // Create InputFile
-            InputFile inputFile = new InputFile(file);
-
-            animation.setAnimation(inputFile);
-
-            execute(animation);
-
-            // delete temporary file
-            file.delete();
-        } catch (IOException | TelegramApiException e) {
-            log.error("Error occurred: " + e.getMessage());
-        }
+        animation.setAnimation(new InputFile(fileId));
+        execute(animation);
     }
 
     private void executeMessage(SendMessage msg) {

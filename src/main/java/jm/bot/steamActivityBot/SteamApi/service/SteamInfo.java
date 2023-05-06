@@ -5,7 +5,9 @@ import com.lukaspradel.steamapi.data.json.playersummaries.GetPlayerSummaries;
 import com.lukaspradel.steamapi.webapi.client.SteamWebApiClient;
 import com.lukaspradel.steamapi.webapi.request.GetPlayerSummariesRequest;
 import com.lukaspradel.steamapi.webapi.request.builders.SteamWebApiRequestFactory;
+import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.SteamUser;
+import jm.bot.steamActivityBot.mapper.SteamUserMapper;
 import jm.bot.steamActivityBot.repository.SteamUserRepo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,75 +16,73 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityNotFoundException;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 
 @Slf4j
 @Service
 public class SteamInfo {
 
+    private final SteamUserRepo steamUserRepo;
+    private final SteamUserMapper steamUserMapper;
+
+    private final SteamWebApiClient client;
+
     @Autowired
-    private SteamUserRepo steamUserRepo;
-    @Value("${steam.key}")
-    private String steamkey;
-
-    private SteamWebApiClient client;
-
-    @PostConstruct
-    private void init() {
-        // maybe change scope!!!
-        client = new SteamWebApiClient.SteamWebApiClientBuilder(steamkey).build();
+    public SteamInfo(SteamUserRepo steamUserRepo, SteamUserMapper steamUserMapper,
+                     @Value("${steam.key}") String steamKey) {
+        this.steamUserRepo=steamUserRepo;
+        this.steamUserMapper=steamUserMapper;
+        client = new SteamWebApiClient.SteamWebApiClientBuilder(steamKey).build();
     }
 
 
+    public SteamUserShortInfo getShortUserInfo(String userId) throws SteamApiException {
 
-    public SteamUser getShortUserInfo(String userId) throws SteamApiException {
-
-//        client = new SteamWebApiClient.SteamWebApiClientBuilder(steamkey).build();
-
+        SteamUser steamUser;
 
         // register the user if he is not in the database
-        registerUser(userId);
-
-        return steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
+        if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
+             steamUser = registerUser(userId);
+        } else steamUser = steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
                 new EntityNotFoundException("Steam user not found"));
 
+        return steamUserMapper.toShorInfo(steamUser);
     }
 
-//    private SteamUser getAllUserInfo(String userId) throws SteamApiException {
-//
-//        // register the user if he is not in the database
-//        registerUser(userId);
-//        SteamUser steamUser =
-//
-//        return steamUserRepo.findById(Long.valueOf(userId));
-//
-//    }
+    public SteamUser getAllUserInfo(String userId) throws SteamApiException {
 
-    public String getInfo() {
-        return "User info: ....";
-    }
-
-    private void registerUser(String userId) throws SteamApiException {
-
+        // register the user if he is not in the database
         if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
+            return registerUser(userId);
+        } else return steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
+                new EntityNotFoundException("Steam user not found"));
+    }
 
-            // request for user info
-            GetPlayerSummariesRequest request = SteamWebApiRequestFactory.createGetPlayerSummariesRequest(Collections.singletonList(userId));
-            GetPlayerSummaries userInfo = client.processRequest(request);
+    private SteamUser registerUser(String userId) throws SteamApiException {
 
-            String userNickName = userInfo.getResponse().getPlayers().get(0).getPersonaname();
-            String avatarUrl = userInfo.getResponse().getPlayers().get(0).getAvatarfull();
+        // request for user info
+        GetPlayerSummariesRequest request = SteamWebApiRequestFactory.createGetPlayerSummariesRequest(Collections.singletonList(userId));
+        GetPlayerSummaries userInfo = client.processRequest(request);
 
-            SteamUser steamUser = new SteamUser();
+        String userNickName = userInfo.getResponse().getPlayers().get(0).getPersonaname();
+        String avatarUrl = userInfo.getResponse().getPlayers().get(0).getAvatarfull();
+        Integer time = userInfo.getResponse().getPlayers().get(0).getTimecreated();
 
-            steamUser.setId(Long.valueOf(userId));
-            steamUser.setUserNickName(userNickName);
-            steamUser.setAvatarUrl(avatarUrl);
+        SteamUser steamUser = new SteamUser();
 
-            steamUserRepo.save(steamUser);
+        steamUser.setId(Long.valueOf(userId));
+        steamUser.setUserNickName(userNickName);
+        steamUser.setAvatarUrl(avatarUrl);
+        steamUser.setTimeRegister(LocalDateTime.ofEpochSecond(time, 0, ZoneOffset.UTC));
 
-            log.info("Register steam user in database: " + steamUser);
-        }
+        log.info("Register steam user in database: " + steamUser);
+
+
+        return steamUserRepo.save(steamUser);
+
+
     }
 
 }
