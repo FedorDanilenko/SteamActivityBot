@@ -7,7 +7,7 @@ import javax.persistence.Entity;
 import javax.persistence.Id;
 
 @Data
-@Entity
+@Entity(name="steamUsers")
 public class SteamUser {
     @Id
     @Column(name = "steamId")

@@ -18,4 +18,7 @@ public class BotConfig {
 
     @Value("${steam.key}")
     String steamKey;
+
+    @Value("377367081")
+    Long ownerId;
 }

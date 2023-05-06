@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
+import javax.persistence.EntityNotFoundException;
 import java.util.Collections;
 
 @Slf4j
@@ -22,19 +24,29 @@ public class SteamInfo {
     private SteamUserRepo steamUserRepo;
     @Value("${steam.key}")
     private String steamkey;
-    private String userId;
 
-    SteamWebApiClient client = new SteamWebApiClient.SteamWebApiClientBuilder(steamkey).build();
+    private SteamWebApiClient client;
 
-//    private SteamUser getShortUserInfo(String userId) throws SteamApiException {
-//
-//        // register the user if he is not in the database
-//        registerUser(userId);
-//        SteamUser steamUser =
-//
-//        return steamUserRepo.findById(Long.valueOf(userId));
-//
-//    }
+    @PostConstruct
+    private void init() {
+        // maybe change scope!!!
+        client = new SteamWebApiClient.SteamWebApiClientBuilder(steamkey).build();
+    }
+
+
+
+    public SteamUser getShortUserInfo(String userId) throws SteamApiException {
+
+//        client = new SteamWebApiClient.SteamWebApiClientBuilder(steamkey).build();
+
+
+        // register the user if he is not in the database
+        registerUser(userId);
+
+        return steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
+                new EntityNotFoundException("Steam user not found"));
+
+    }
 
 //    private SteamUser getAllUserInfo(String userId) throws SteamApiException {
 //
@@ -51,7 +63,6 @@ public class SteamInfo {
     }
 
     private void registerUser(String userId) throws SteamApiException {
-        this.userId=userId;
 
         if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
 
@@ -67,6 +78,9 @@ public class SteamInfo {
             steamUser.setId(Long.valueOf(userId));
             steamUser.setUserNickName(userNickName);
             steamUser.setAvatarUrl(avatarUrl);
+
+            steamUserRepo.save(steamUser);
+
             log.info("Register steam user in database: " + steamUser);
         }
     }
