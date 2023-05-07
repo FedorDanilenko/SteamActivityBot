@@ -22,13 +22,11 @@ import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -36,14 +34,17 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
 
     private final UserRepo userRepo;
     private final SteamInfo steamInfo;
+    private static Map<Long, String> waitingCommands = new HashMap<>();
+    private static Map<Long, String> waitingId = new HashMap<>();
+
     final BotConfig botConfig;
 
 
     @Autowired
     public TelegramBot(BotConfig botConfig, UserRepo userRepo, SteamInfo steamInfo) {
         this.botConfig = botConfig;
-        this.userRepo=userRepo;
-        this.steamInfo=steamInfo;
+        this.userRepo = userRepo;
+        this.steamInfo = steamInfo;
         try {
             this.execute(new SetMyCommands(BOT_COMMAND_LIST, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
@@ -66,6 +67,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
     public void onUpdateReceived(@NonNull Update update) {
         long chatId;
         long messageId;
+        String steamId;
         Chat chat;
         String receivedMessage;
 
@@ -78,21 +80,21 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                 botAnswerUtil(receivedMessage, chatId, chat);
             }
 
-        // if click buttons
+            // if click buttons
         } else if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();
             messageId = update.getCallbackQuery().getMessage().getMessageId();
             chatId = update.getCallbackQuery().getMessage().getChatId();
 
             if (callbackData.equals("short user info")) {
-                SteamUserShortInfo steamUserInfo = steamInfo.getShortUserInfo("76561198045167898");
+                SteamUserShortInfo steamUserInfo = steamInfo.getShortUserInfo(waitingId.remove(chatId));
                 String answer = String.valueOf(steamUserInfo);
                 executeEditMessageText(answer, chatId, messageId);
                 log.info("get short info user " + chatId + " about steamuser " + steamUserInfo.getId());
             } else if (callbackData.equals("all user info")) {
-                SteamUser steamUserInfo = steamInfo.getAllUserInfo("76561198045167898");
+                SteamUser steamUserInfo = steamInfo.getAllUserInfo(waitingId.remove(chatId)); //76561198045167898
                 String answer = String.valueOf(steamUserInfo);
-                executeEditMessageText(String.valueOf(answer),chatId,messageId);
+                executeEditMessageText(String.valueOf(answer), chatId, messageId);
                 log.info("get All info user " + chatId + " about steamuser " + steamUserInfo.getId());
 
             }
@@ -101,6 +103,17 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
 
     @SneakyThrows
     private void botAnswerUtil(String messageText, long chatId, Chat chat) {
+        //
+        if (waitingCommands.containsKey(chatId)) {
+            if (waitingCommands.get(chatId).equals("waitSteamUserId")) {
+                waitingId.put(chatId,messageText);
+                waitingCommands.remove(chatId);
+                if (messageText.matches("\\d+")) {
+                    getSteamUserInfo(chatId);
+                    return;
+                }
+            }
+        }
 
         if (messageText.contains("/sendAll") && botConfig.getOwnerId() == chatId) {
             var textToSend = messageText.substring(messageText.indexOf(" "));
@@ -121,7 +134,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                     break;
 
                 case "/getSteamUserInfo":
-                    getSteamUserInfo(chatId);
+                    getSteamUserId(chatId);
                     break;
                 default:
                     prepareAndSendMessage(chatId, "Oh No Bro! I don't know this command.");
@@ -142,6 +155,15 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         }
     }
 
+    private void getSteamUserId(long chatId) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText("Enter steam user ID");
+        executeMessage(message);
+        log.info("sent a request to get a user steam user id: " + chatId);
+        waitingCommands.put(chatId, "waitSteamUserId");
+    }
+
 
     private void getSteamUserInfo(long chatId) {
         SendMessage message = new SendMessage();
@@ -152,7 +174,6 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
 
         executeMessage(message);
         log.info("send command getSteamInfo user: " + chatId);
-
     }
 
 
