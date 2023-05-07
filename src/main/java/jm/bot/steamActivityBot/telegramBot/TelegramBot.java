@@ -2,12 +2,13 @@ package jm.bot.steamActivityBot.telegramBot;
 
 import jm.bot.steamActivityBot.SteamApi.service.SteamInfo;
 import jm.bot.steamActivityBot.config.BotConfig;
-import jm.bot.steamActivityBot.constants.BotMessageEnum;
-import jm.bot.steamActivityBot.constants.MenuList;
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.BotUser;
 import jm.bot.steamActivityBot.entity.SteamUser;
 import jm.bot.steamActivityBot.repository.UserRepo;
+import jm.bot.steamActivityBot.telegramBot.components.BotCommands;
+import jm.bot.steamActivityBot.telegramBot.components.SteamUserInfoButtons;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +23,7 @@ import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.sql.Timestamp;
@@ -33,26 +32,20 @@ import java.util.List;
 
 @Slf4j
 @Service
-public class TelegramBot extends TelegramLongPollingBot {
+public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
 
     private final UserRepo userRepo;
     private final SteamInfo steamInfo;
-    private final MenuList menuList;
     final BotConfig botConfig;
-
-    static final String SHOT_INFO="SHOT_INFO_USER";
-    static final String ALL_INFO = "All_INFO_USER";
 
 
     @Autowired
-    public TelegramBot(BotConfig botConfig, UserRepo userRepo, SteamInfo steamInfo, MenuList menuList) {
+    public TelegramBot(BotConfig botConfig, UserRepo userRepo, SteamInfo steamInfo) {
         this.botConfig = botConfig;
         this.userRepo=userRepo;
         this.steamInfo=steamInfo;
-        this.menuList=menuList;
         try {
-            this.execute(new SetMyCommands(menuList.getListOfCommands(), new BotCommandScopeDefault(), null));
-//            register(new StartCommand("start", "start"));
+            this.execute(new SetMyCommands(BOT_COMMAND_LIST, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
             log.error("Error setting bot's command list: " + e.getMessage());
         }
@@ -63,14 +56,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         return botConfig.getBotName();
     }
 
-//    @Override
-//    public void processNonCommandUpdate(Update update) {
-//        Long chatId = update.getMessage().getChatId();
-//
-//        sendMassage(chatId, "Whatever happens, happens.");
-//
-//    }
-
     @Override
     public String getBotToken() {
         return botConfig.getToken();
@@ -78,59 +63,69 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @SneakyThrows
     @Override
-    public void onUpdateReceived(Update update) {
+    public void onUpdateReceived(@NonNull Update update) {
+        long chatId;
+        long messageId;
+        Chat chat;
+        String receivedMessage;
 
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            String messageText = update.getMessage().getText();
-            long chatId = update.getMessage().getChatId();
-
-            if (messageText.contains("/send") && botConfig.getOwnerId() == chatId) {
-                var textToSend = messageText.substring(messageText.indexOf(" "));
-                var users = userRepo.findAll();
-                for (BotUser user : users) {
-                    prepareAndSendMessage(user.getChatId(), textToSend);
-                    log.info("Send text all users: " + textToSend);
-                }
+        // if text message
+        if (update.hasMessage()) {
+            chatId = update.getMessage().getChatId();
+            chat = update.getMessage().getChat();
+            if (update.getMessage().hasText()) {
+                receivedMessage = update.getMessage().getText();
+                botAnswerUtil(receivedMessage, chatId, chat);
             }
-            else {
-                switch (messageText) {
-                    case "/start":
 
-                        registerUser(update.getMessage().getChat());
-
-                        startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
-                        break;
-                    case "/help":
-                        prepareAndSendMessage(chatId, BotMessageEnum.HELP_INFO.getMessage());
-                        log.info("send help info user: " + chatId);
-                        break;
-
-                    case "/getSteamInfo":
-
-                        getSteamUserInfo(chatId, update);
-
-                        break;
-                    default:
-                        prepareAndSendMessage(chatId, "Oh No Bro!");
-                }
-            }
+        // if click buttons
         } else if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();
+            messageId = update.getCallbackQuery().getMessage().getMessageId();
+            chatId = update.getCallbackQuery().getMessage().getChatId();
 
-            long messageId = update.getCallbackQuery().getMessage().getMessageId();
-            long chatId = update.getCallbackQuery().getMessage().getChatId();
-
-            if (callbackData.equals(SHOT_INFO)) {
+            if (callbackData.equals("short user info")) {
                 SteamUserShortInfo steamUserInfo = steamInfo.getShortUserInfo("76561198045167898");
                 String answer = String.valueOf(steamUserInfo);
                 executeEditMessageText(answer, chatId, messageId);
                 log.info("get short info user " + chatId + " about steamuser " + steamUserInfo.getId());
-            } else if (callbackData.equals(ALL_INFO)) {
+            } else if (callbackData.equals("all user info")) {
                 SteamUser steamUserInfo = steamInfo.getAllUserInfo("76561198045167898");
                 String answer = String.valueOf(steamUserInfo);
                 executeEditMessageText(String.valueOf(answer),chatId,messageId);
                 log.info("get All info user " + chatId + " about steamuser " + steamUserInfo.getId());
 
+            }
+        }
+    }
+
+    @SneakyThrows
+    private void botAnswerUtil(String messageText, long chatId, Chat chat) {
+
+        if (messageText.contains("/sendAll") && botConfig.getOwnerId() == chatId) {
+            var textToSend = messageText.substring(messageText.indexOf(" "));
+            var users = userRepo.findAll();
+            for (BotUser user : users) {
+                prepareAndSendMessage(user.getChatId(), textToSend);
+                log.info("Send text all users: " + textToSend);
+            }
+        } else {
+            switch (messageText) {
+                case "/start":
+                    registerUser(chat);
+                    startCommandReceived(chatId, chat.getFirstName());
+                    break;
+                case "/help":
+                    prepareAndSendMessage(chatId, HELP_INFO);
+                    log.info("send help info user: " + chatId);
+                    break;
+
+                case "/getSteamUserInfo":
+                    getSteamUserInfo(chatId);
+                    break;
+                default:
+                    prepareAndSendMessage(chatId, "Oh No Bro! I don't know this command.");
+                    log.info("Unexpected message");
             }
         }
     }
@@ -148,35 +143,12 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    private void getSteamUserInfo(Long chatId, Update update) {
-
-
-
+    private void getSteamUserInfo(long chatId) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText("How much information to give out?");
 
-        InlineKeyboardMarkup markupInLine = new InlineKeyboardMarkup();
-        List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
-
-        List<InlineKeyboardButton> rowInLine = new ArrayList<>();
-
-        var shortInfoButton = new InlineKeyboardButton();
-        shortInfoButton.setText("shot");
-        shortInfoButton.setCallbackData(SHOT_INFO);
-
-        var allInfoButton = new InlineKeyboardButton();
-        allInfoButton.setText("all");
-        allInfoButton.setCallbackData(ALL_INFO);
-
-        rowInLine.add(shortInfoButton);
-        rowInLine.add(allInfoButton);
-
-        rowsInLine.add(rowInLine);
-
-        markupInLine.setKeyboard(rowsInLine);
-
-        message.setReplyMarkup(markupInLine);
+        message.setReplyMarkup(SteamUserInfoButtons.inlineMarkup());
 
         executeMessage(message);
         log.info("send command getSteamInfo user: " + chatId);
@@ -197,7 +169,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             user.setStartTime(new Timestamp(System.currentTimeMillis()));
 
             userRepo.save(user);
-            log.info("User saved:" + user);
+            log.info("User saved in database:" + user);
         }
     }
 
@@ -210,28 +182,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         sendGif(chatId, "https://media.tenor.com/dti1tvshXAoAAAAd/muscle-man.gif"); // "CgACAgQAAxkBAAEgu61kVorN56RKTm4FyMaPG0CItmPQIgAC7gIAAnSurVHvaRDgfnDS7C8E"
         prepareAndSendMessage(chatId, "MY MOM!!!");
         log.info("Replied to user " + name);
-
-    }
-
-
-    private void sendMassage(long chatId, String textToSend) {
-        SendMessage message = new SendMessage();
-        message.setChatId(String.valueOf(chatId));
-        message.setText(textToSend);
-        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-
-        List<KeyboardRow> keyboardRows = new ArrayList<>();
-
-        KeyboardRow row = new KeyboardRow();
-        row.add("/getSteamInfo");
-
-        keyboardRows.add(row);
-
-        keyboardMarkup.setKeyboard(keyboardRows);
-
-        message.setReplyMarkup(keyboardMarkup);
-
-        executeMessage(message);
 
     }
 

@@ -7,7 +7,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @Data
-//@PropertySource("application.properties")
+@PropertySource("application.properties")
 public class BotConfig {
 
     @Value("${bot.name}")
@@ -15,9 +15,6 @@ public class BotConfig {
 
     @Value("${bot.key}")
     String token;
-
-    @Value("${steam.key}")
-    String steamKey;
 
     @Value("377367081")
     Long ownerId;
