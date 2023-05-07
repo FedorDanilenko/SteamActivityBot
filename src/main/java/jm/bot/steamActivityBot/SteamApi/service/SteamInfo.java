@@ -11,6 +11,7 @@ import com.lukaspradel.steamapi.webapi.request.builders.SteamWebApiRequestFactor
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.SteamApp;
 import jm.bot.steamActivityBot.entity.SteamUser;
+import jm.bot.steamActivityBot.mapper.SteamAppMapper;
 import jm.bot.steamActivityBot.mapper.SteamUserMapper;
 import jm.bot.steamActivityBot.repository.SteamAppRepo;
 import jm.bot.steamActivityBot.repository.SteamUserRepo;
@@ -23,6 +24,7 @@ import javax.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -31,15 +33,17 @@ public class SteamInfo {
     private final SteamUserRepo steamUserRepo;
     private final SteamUserMapper steamUserMapper;
     private final SteamAppRepo steamAppRepo;
+    private final SteamAppMapper steamAppMapper;
 
     private final SteamWebApiClient client;
 
     @Autowired
-    public SteamInfo(SteamUserRepo steamUserRepo, SteamUserMapper steamUserMapper, SteamAppRepo steamAppRepo,
+    public SteamInfo(SteamUserRepo steamUserRepo, SteamUserMapper steamUserMapper, SteamAppRepo steamAppRepo, SteamAppMapper steamAppMapper,
                      @Value("${steam.key}") String steamKey) {
         this.steamUserRepo=steamUserRepo;
         this.steamUserMapper=steamUserMapper;
         this.steamAppRepo = steamAppRepo;
+        this.steamAppMapper = steamAppMapper;
         client = new SteamWebApiClient.SteamWebApiClientBuilder(steamKey).build();
     }
 
@@ -84,8 +88,8 @@ public class SteamInfo {
         steamUser.setAvatarUrl(avatarUrl);
         steamUser.setTimeRegister(LocalDateTime.ofEpochSecond(time, 0, ZoneOffset.UTC));
         steamUserRepo.save(steamUser);
-        log.info("Register steam user in database: " + steamUser);
         registerApp(steamUser);
+        log.info("Register steam user in database: " + steamUserMapper.toShorInfo(steamUser));
 
         return steamUser;
 
@@ -101,17 +105,18 @@ public class SteamInfo {
         Set<SteamApp> steamAppSet = new HashSet<>();
         for (Game game: games) {
             SteamApp steamApp = new SteamApp();
-            System.out.println(1);
-            System.out.println("Game ID: " + game.getAppid());
-            System.out.println("Game name: " + game.getName());
-            steamApp.setSteamUser(user);
             steamApp.setId(Long.valueOf(game.getAppid()));
             steamApp.setName(game.getName());
+            steamApp.setSteamUser(user);
             steamAppSet.add(steamApp);
         }
 
+        System.out.println(2);
         steamAppRepo.saveAll(steamAppSet);
-        log.info("register games in database:" + steamAppSet);
+        user.setSteamAppNames(steamAppSet);
+
+        System.out.println(3);
+        log.info("register games in database:" + steamAppSet.stream().map(steamAppMapper::toShortInfo).collect(Collectors.toSet()));
 
     }
 

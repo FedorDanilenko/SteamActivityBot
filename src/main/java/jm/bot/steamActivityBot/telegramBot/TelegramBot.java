@@ -129,7 +129,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 SteamUser steamUserInfo = steamInfo.getAllUserInfo("76561198045167898");
                 String answer = String.valueOf(steamUserInfo);
                 executeEditMessageText(String.valueOf(answer),chatId,messageId);
-                log.info("get short info user " + chatId + " about steamuser " + steamUserInfo.getId());
+                log.info("get All info user " + chatId + " about steamuser " + steamUserInfo.getId());
 
             }
         }
