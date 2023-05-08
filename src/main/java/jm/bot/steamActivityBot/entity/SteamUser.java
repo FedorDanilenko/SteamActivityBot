@@ -23,8 +23,17 @@ public class SteamUser {
     @Column(name = "register")
     private LocalDateTime timeRegister;
 
-    @OneToMany(mappedBy = "steamUser", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @ManyToMany
+    @JoinTable(
+            name = "steam_apps",
+            joinColumns = @JoinColumn(name = "steam_id"),
+            inverseJoinColumns = @JoinColumn(name = "game_id"))
     private Set<SteamApp> steamAppNames;
+
+//    @OneToMany(mappedBy = "steamUser", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+//    private Set<SteamApp> steamAppNames;
+
+
 
     @Override
     public String toString() {

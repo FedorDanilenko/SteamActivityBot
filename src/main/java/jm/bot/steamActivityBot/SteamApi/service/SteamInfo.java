@@ -49,6 +49,7 @@ public class SteamInfo {
     }
 
 
+    @Transactional
     public SteamUserShortInfo getShortUserInfo(String userId) throws SteamApiException {
 
         SteamUser steamUser;
@@ -58,9 +59,11 @@ public class SteamInfo {
              steamUser = registerUser(userId);
         } else steamUser = steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
                 new EntityNotFoundException("Steam user not found"));
+        System.out.println(steamUser.getSteamAppNames().size());
 
         return steamUserMapper.toShorInfo(steamUser);
     }
+
 
     @Transactional
     public SteamUser getAllUserInfo(String userId) throws SteamApiException {
@@ -75,6 +78,7 @@ public class SteamInfo {
         return steamUser;
     }
 
+
     private SteamUser registerUser(String userId) throws SteamApiException {
 
         // request for user info
@@ -85,22 +89,23 @@ public class SteamInfo {
         String avatarUrl = userInfo.getResponse().getPlayers().get(0).getAvatarfull();
         Integer time = userInfo.getResponse().getPlayers().get(0).getTimecreated();
 
-
         SteamUser steamUser = new SteamUser();
 
         steamUser.setId(Long.valueOf(userId));
         steamUser.setUserNickName(userNickName);
         steamUser.setAvatarUrl(avatarUrl);
         steamUser.setTimeRegister(LocalDateTime.ofEpochSecond(time, 0, ZoneOffset.UTC));
+        steamUser.setSteamAppNames(registerApp(steamUser));
         steamUserRepo.save(steamUser);
-        registerApp(steamUser);
+
         log.info("Register steam user in database: " + steamUserMapper.toShorInfo(steamUser));
 
         return steamUser;
 
     }
 
-    private void registerApp(SteamUser user) throws SteamApiException {
+    @Transactional
+    private Set<SteamApp> registerApp(SteamUser user) throws SteamApiException {
 
         GetOwnedGamesRequest ownedGamesRequest = SteamWebApiRequestFactory.createGetOwnedGamesRequest(String.valueOf(user.getId()),true,true, new ArrayList<>());
         GetOwnedGames ownedGames = client.processRequest(ownedGamesRequest);
@@ -109,17 +114,21 @@ public class SteamInfo {
 
         Set<SteamApp> steamAppSet = new HashSet<>();
         for (Game game: games) {
+            System.out.println("check");
             SteamApp steamApp = new SteamApp();
             steamApp.setId(Long.valueOf(game.getAppid()));
             steamApp.setName(game.getName());
-            steamApp.setSteamUser(user);
+            if (steamApp.getSteamUsers() == null) {
+                Set<SteamUser> steamUsers = new HashSet<>();
+                steamApp.setSteamUsers(steamUsers);
+            }
             steamAppSet.add(steamApp);
         }
-
+        System.out.println(steamAppSet.size());
         steamAppRepo.saveAll(steamAppSet);
-        user.setSteamAppNames(steamAppSet);
 
         log.info("register games in database:" + steamAppSet.stream().map(steamAppMapper::toShortInfo).collect(Collectors.toSet()));
+        return steamAppSet;
 
     }
 

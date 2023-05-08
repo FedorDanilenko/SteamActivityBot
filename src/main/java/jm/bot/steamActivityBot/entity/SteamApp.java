@@ -4,6 +4,7 @@ import lombok.Data;
 
 import javax.persistence.*;
 import java.util.Objects;
+import java.util.Set;
 
 @Data
 @Entity(name = "Games")
@@ -16,9 +17,14 @@ public class SteamApp {
     @Column(name = "gameName")
     private String name;
 
-    @ManyToOne
-    @JoinColumn(name = "steam_user_id")
-    private SteamUser steamUser;
+    @ManyToMany(mappedBy = "steamAppNames")
+    private Set<SteamUser> steamUsers;
+
+//    @ManyToOne
+//    @JoinColumn(name = "steam_user_id")
+//    private SteamUser steamUser;
+
+
 
     @Override
     public boolean equals(Object o) {
