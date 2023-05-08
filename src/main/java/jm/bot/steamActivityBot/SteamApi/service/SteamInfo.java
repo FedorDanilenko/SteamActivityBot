@@ -95,7 +95,7 @@ public class SteamInfo {
         steamUser.setUserNickName(userNickName);
         steamUser.setAvatarUrl(avatarUrl);
         steamUser.setTimeRegister(LocalDateTime.ofEpochSecond(time, 0, ZoneOffset.UTC));
-        steamUser.setSteamAppNames(registerApp(steamUser));
+        steamUser.setSteamAppNames(registerApps(steamUser));
         steamUserRepo.save(steamUser);
 
         log.info("Register steam user in database: " + steamUserMapper.toShorInfo(steamUser));
@@ -104,8 +104,8 @@ public class SteamInfo {
 
     }
 
-    @Transactional
-    private Set<SteamApp> registerApp(SteamUser user) throws SteamApiException {
+
+    private Set<SteamApp> registerApps(SteamUser user) throws SteamApiException {
 
         GetOwnedGamesRequest ownedGamesRequest = SteamWebApiRequestFactory.createGetOwnedGamesRequest(String.valueOf(user.getId()),true,true, new ArrayList<>());
         GetOwnedGames ownedGames = client.processRequest(ownedGamesRequest);
@@ -113,15 +113,16 @@ public class SteamInfo {
         System.out.println(games.size());
 
         Set<SteamApp> steamAppSet = new HashSet<>();
+        SteamApp steamApp;
         for (Game game: games) {
-            System.out.println("check");
-            SteamApp steamApp = new SteamApp();
-            steamApp.setId(Long.valueOf(game.getAppid()));
-            steamApp.setName(game.getName());
-            if (steamApp.getSteamUsers() == null) {
+            if (steamAppRepo.findById(Long.valueOf(game.getAppid())).isEmpty()) {
+                steamApp = new SteamApp();
+                steamApp.setId(Long.valueOf(game.getAppid()));
+                steamApp.setName(game.getName());
                 Set<SteamUser> steamUsers = new HashSet<>();
                 steamApp.setSteamUsers(steamUsers);
-            }
+            } else steamApp = steamAppRepo.findById(Long.valueOf(game.getAppid())).orElseThrow(() ->
+                    new EntityNotFoundException("Steam app not found"));
             steamAppSet.add(steamApp);
         }
         System.out.println(steamAppSet.size());
