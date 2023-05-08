@@ -9,11 +9,13 @@ public interface BotCommands {
     List<BotCommand> BOT_COMMAND_LIST = List.of(
             new BotCommand("/start", "start bot"),
             new BotCommand("/help", "info how to use this bot"),
-            new BotCommand("/getSteamUserInfo", "gives steam user data by his id")
+            new BotCommand("/getSteamUserInfo", "gives steam user data by his id"),
+            new BotCommand("/getUserActivity", "gives graph of user activity")
     );
 
     String HELP_INFO = "This bot is designed to work with SteamAPI and get different statistics of Steam users and applications.\n\n " +
             "Commands:\n\n" + "/start - start bot.\n\n" +
             "/help - get a description of the bot and commands\n\n" +
-            "/getSteamUserInfo - get steam user info by his Id";
+            "/getSteamUserInfo - get steam user info by his Id\n\n" +
+            "/getUserActivity - get steam user achievements activity";
 }

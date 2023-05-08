@@ -3,9 +3,12 @@ package jm.bot.steamActivityBot.SteamApi.service;
 import com.lukaspradel.steamapi.core.exception.SteamApiException;
 import com.lukaspradel.steamapi.data.json.ownedgames.Game;
 import com.lukaspradel.steamapi.data.json.ownedgames.GetOwnedGames;
+import com.lukaspradel.steamapi.data.json.playerachievements.Achievement;
+import com.lukaspradel.steamapi.data.json.playerachievements.GetPlayerAchievements;
 import com.lukaspradel.steamapi.data.json.playersummaries.GetPlayerSummaries;
 import com.lukaspradel.steamapi.webapi.client.SteamWebApiClient;
 import com.lukaspradel.steamapi.webapi.request.GetOwnedGamesRequest;
+import com.lukaspradel.steamapi.webapi.request.GetPlayerAchievementsRequest;
 import com.lukaspradel.steamapi.webapi.request.GetPlayerSummariesRequest;
 import com.lukaspradel.steamapi.webapi.request.builders.SteamWebApiRequestFactory;
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserAllInfo;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Service;
 
 import javax.persistence.EntityNotFoundException;
 import javax.transaction.Transactional;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -77,6 +81,65 @@ public class SteamInfo {
                 new EntityNotFoundException("Steam user not found"));
         steamUser.getSteamAppNames().size(); // initialize "steamAppNames"
         return steamUserMapper.toAllInfo(steamUser);
+    }
+
+    public Map<LocalDate, Integer> getUserActivity(String userId) throws SteamApiException {
+        // get a list of user's game ids
+        GetOwnedGamesRequest request = SteamWebApiRequestFactory.createGetOwnedGamesRequest(userId, true, true, new ArrayList<>());
+        GetOwnedGames ownedGames = client.processRequest(request);
+        List<Integer> gamesIdList = ownedGames.getResponse().getGames()
+                .stream()
+                .filter(game -> game.getPlaytimeForever() != 0)             // only games that the user has launched at least once
+                .filter(game -> game.getHasCommunityVisibleStats() != null) // only games in which the player has achievements
+                .map(Game::getAppid)
+                .collect(Collectors.toList());
+
+        // get a list of unlocktime of all user achievements
+        List<LocalDate> allUnLockTimeStepList = new ArrayList<>();
+        try {
+            for (int appId : gamesIdList) {
+//            for (int i = 0; i < 10; i++) {
+//                int appId = gamesIdList.get(i);
+                System.out.println(appId);
+                GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(appId, userId);
+                GetPlayerAchievements playerAchievements = client.processRequest(requestAch);
+                List<LocalDate> unLockTimeStepList = playerAchievements.getPlayerstats().getAchievements()
+                        .stream()
+                        .filter(achievement -> achievement.getAchieved() != 0) // filter timestep for not achieved achievements
+                        .map(Achievement::getAdditionalProperties)
+                        .map(a -> (Integer) a.get("unlocktime"))
+                        .map(integer -> LocalDateTime.ofEpochSecond(integer, 0, ZoneOffset.UTC))
+                        .map(LocalDateTime::toLocalDate)
+                        .collect(Collectors.toList());
+                allUnLockTimeStepList.addAll(unLockTimeStepList);
+            }
+        } catch (SteamApiException e) {
+            System.out.println(e.getMessage());
+            throw new SteamApiException("ID: " + userId + "\nName: Profile is not public");
+        }
+        System.out.println(allUnLockTimeStepList);
+        Collections.sort(allUnLockTimeStepList);
+        System.out.println(allUnLockTimeStepList);
+
+        // Count days
+        Map<LocalDate, Integer> timeStampCount = new HashMap<>();
+        allUnLockTimeStepList.forEach(date -> {
+            timeStampCount.put(date, timeStampCount.getOrDefault(date, 0) + 1);
+        });
+        System.out.println(timeStampCount);
+
+        List<Map.Entry<LocalDate, Integer>> list = new ArrayList<>(timeStampCount.entrySet());
+
+        list.sort(Map.Entry.comparingByKey());
+
+        Map<LocalDate, Integer> sortedMap = new LinkedHashMap<>();
+        for (Map.Entry<LocalDate, Integer> entry : list) {
+            sortedMap.put(entry.getKey(), entry.getValue());
+        }
+
+        System.out.println(sortedMap);
+        return sortedMap;
+
     }
 
 

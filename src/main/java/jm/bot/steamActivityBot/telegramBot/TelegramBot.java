@@ -5,10 +5,11 @@ import jm.bot.steamActivityBot.config.BotConfig;
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserAllInfo;
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.BotUser;
-import jm.bot.steamActivityBot.entity.SteamUser;
+import jm.bot.steamActivityBot.repository.SteamUserRepo;
 import jm.bot.steamActivityBot.repository.UserRepo;
 import jm.bot.steamActivityBot.telegramBot.components.BotCommands;
 import jm.bot.steamActivityBot.telegramBot.components.SteamUserInfoButtons;
+import jm.bot.steamActivityBot.telegramBot.service.PlotCreator;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendAnimation;
+import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Chat;
@@ -25,7 +27,10 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import javax.persistence.EntityNotFoundException;
+import java.io.File;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,6 +40,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
 
     private final UserRepo userRepo;
     private final SteamInfo steamInfo;
+    private final SteamUserRepo steamUserRepo;
     private static Map<Long, String> waitingCommands = new HashMap<>();
     private static Map<Long, String> waitingId = new HashMap<>();
 
@@ -42,10 +48,11 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
 
 
     @Autowired
-    public TelegramBot(BotConfig botConfig, UserRepo userRepo, SteamInfo steamInfo) {
+    public TelegramBot(BotConfig botConfig, UserRepo userRepo, SteamInfo steamInfo, SteamUserRepo steamUserRepo) {
         this.botConfig = botConfig;
         this.userRepo = userRepo;
         this.steamInfo = steamInfo;
+        this.steamUserRepo = steamUserRepo;
         try {
             this.execute(new SetMyCommands(BOT_COMMAND_LIST, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
@@ -106,13 +113,26 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
     private void botAnswerUtil(String messageText, long chatId, Chat chat) {
         //
         if (waitingCommands.containsKey(chatId)) {
-            if (waitingCommands.get(chatId).equals("waitSteamUserId")) {
-                waitingId.put(chatId,messageText);
-                waitingCommands.remove(chatId);
-                if (messageText.matches("\\d+")) {
-                    getSteamUserInfo(chatId);
-                    return;
-                }
+            switch (waitingCommands.get(chatId)) {
+                case "/getSteamUserInfo":
+                    waitingId.put(chatId,messageText);
+                    waitingCommands.remove(chatId);
+                    if (messageText.matches("\\d+")) {
+                        getSteamUserInfo(chatId);
+                        return;
+                    }
+                case "/getUserActivity":
+                    waitingCommands.remove(chatId);
+                    if (messageText.matches("\\d+")) {
+                        prepareAndSendMessage(chatId, "Scanning your games");
+                        prepareAndSendMessage(chatId, "wait");
+                        Map<LocalDate,Integer> ach = steamInfo.getUserActivity(messageText);
+                        String steamUserName = steamUserRepo.findById(Long.valueOf(messageText)).orElseThrow(() ->
+                                new EntityNotFoundException("Steam user not found")).getUserNickName();
+                        prepareAndSendMessage(chatId, "Steam Activity for user " + steamUserName);
+                        sendFile(chatId, PlotCreator.createPlotPng(ach));
+                        return;
+                    }
             }
         }
 
@@ -135,7 +155,12 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                     break;
 
                 case "/getSteamUserInfo":
-                    getSteamUserId(chatId);
+                    getSteamUserId(chatId, messageText);
+//                    waitingCommands.put(chatId, messageText);
+                    break;
+                case "/getUserActivity":
+                    getSteamUserId(chatId, messageText);
+//                    waitingCommands.put(chatId, messageText);
                     break;
                 default:
                     prepareAndSendMessage(chatId, "Oh No Bro! I don't know this command.");
@@ -156,13 +181,13 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         }
     }
 
-    private void getSteamUserId(long chatId) {
+    private void getSteamUserId(long chatId,String messageText) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText("Enter steam user ID");
         executeMessage(message);
+        waitingCommands.put(chatId, messageText);
         log.info("sent a request to get a user steam user id: " + chatId);
-        waitingCommands.put(chatId, "waitSteamUserId");
     }
 
 
@@ -229,6 +254,14 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         message.setText(textToSend);
         executeMessage(message);
 
+    }
+
+    private void sendFile(long chatId, File file) throws TelegramApiException {
+        SendDocument document = new SendDocument();
+        document.setChatId(String.valueOf(chatId));
+        document.setDocument(new InputFile(file));
+        execute(document);
+        file.delete();
     }
 
 }
