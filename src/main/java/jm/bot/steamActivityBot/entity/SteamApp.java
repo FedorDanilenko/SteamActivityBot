@@ -20,12 +20,6 @@ public class SteamApp {
     @ManyToMany(mappedBy = "steamAppNames")
     private Set<SteamUser> steamUsers;
 
-//    @ManyToOne
-//    @JoinColumn(name = "steam_user_id")
-//    private SteamUser steamUser;
-
-
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

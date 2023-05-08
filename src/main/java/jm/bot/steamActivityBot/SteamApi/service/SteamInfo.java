@@ -8,6 +8,7 @@ import com.lukaspradel.steamapi.webapi.client.SteamWebApiClient;
 import com.lukaspradel.steamapi.webapi.request.GetOwnedGamesRequest;
 import com.lukaspradel.steamapi.webapi.request.GetPlayerSummariesRequest;
 import com.lukaspradel.steamapi.webapi.request.builders.SteamWebApiRequestFactory;
+import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserAllInfo;
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.SteamApp;
 import jm.bot.steamActivityBot.entity.SteamUser;
@@ -66,7 +67,7 @@ public class SteamInfo {
 
 
     @Transactional
-    public SteamUser getAllUserInfo(String userId) throws SteamApiException {
+    public SteamUserAllInfo getAllUserInfo(String userId) throws SteamApiException {
 
         SteamUser steamUser;
         // register the user if he is not in the database
@@ -75,7 +76,7 @@ public class SteamInfo {
         } else steamUser = steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
                 new EntityNotFoundException("Steam user not found"));
         steamUser.getSteamAppNames().size(); // initialize "steamAppNames"
-        return steamUser;
+        return steamUserMapper.toAllInfo(steamUser);
     }
 
 
@@ -115,22 +116,30 @@ public class SteamInfo {
         Set<SteamApp> steamAppSet = new HashSet<>();
         SteamApp steamApp;
         for (Game game: games) {
-            if (steamAppRepo.findById(Long.valueOf(game.getAppid())).isEmpty()) {
-                steamApp = new SteamApp();
-                steamApp.setId(Long.valueOf(game.getAppid()));
-                steamApp.setName(game.getName());
-                Set<SteamUser> steamUsers = new HashSet<>();
-                steamApp.setSteamUsers(steamUsers);
-            } else steamApp = steamAppRepo.findById(Long.valueOf(game.getAppid())).orElseThrow(() ->
+            // check game in database
+            registerGame(game);
+            steamApp = steamAppRepo.findById(Long.valueOf(game.getAppid())).orElseThrow(() ->
                     new EntityNotFoundException("Steam app not found"));
             steamAppSet.add(steamApp);
         }
-        System.out.println(steamAppSet.size());
-        steamAppRepo.saveAll(steamAppSet);
+//        steamAppRepo.saveAll(steamAppSet);
 
         log.info("register games in database:" + steamAppSet.stream().map(steamAppMapper::toShortInfo).collect(Collectors.toSet()));
         return steamAppSet;
 
+    }
+
+    private void registerGame(Game game) {
+        // register game if it not on DB
+        if (steamAppRepo.findById(Long.valueOf(game.getAppid())).isEmpty()) {
+            SteamApp steamApp = new SteamApp();
+
+            steamApp.setId(Long.valueOf(game.getAppid()));
+            steamApp.setName(game.getName());
+            steamApp.setSteamUsers(new HashSet<>());
+
+            steamAppRepo.save(steamApp);
+        }
     }
 
 }

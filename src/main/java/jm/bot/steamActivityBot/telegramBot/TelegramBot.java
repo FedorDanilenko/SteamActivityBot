@@ -2,6 +2,7 @@ package jm.bot.steamActivityBot.telegramBot;
 
 import jm.bot.steamActivityBot.SteamApi.service.SteamInfo;
 import jm.bot.steamActivityBot.config.BotConfig;
+import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserAllInfo;
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.BotUser;
 import jm.bot.steamActivityBot.entity.SteamUser;
@@ -92,7 +93,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                 executeEditMessageText(answer, chatId, messageId);
                 log.info("get short info user " + chatId + " about steamuser " + steamUserInfo.getId());
             } else if (callbackData.equals("all user info")) {
-                SteamUser steamUserInfo = steamInfo.getAllUserInfo(waitingId.remove(chatId)); //76561198045167898
+                SteamUserAllInfo steamUserInfo = steamInfo.getAllUserInfo(waitingId.remove(chatId)); //76561198045167898
                 String answer = String.valueOf(steamUserInfo);
                 executeEditMessageText(String.valueOf(answer), chatId, messageId);
                 log.info("get All info user " + chatId + " about steamuser " + steamUserInfo.getId());
