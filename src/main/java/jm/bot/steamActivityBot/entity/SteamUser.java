@@ -20,10 +20,10 @@ public class SteamUser {
     @Column(name = "avatar")
     private String avatarUrl;
 
-    @Column(name = "refister")
+    @Column(name = "register")
     private LocalDateTime timeRegister;
 
-    @OneToMany(mappedBy = "steamUser", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "steamUser", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<SteamApp> steamAppNames;
 
     @Override
@@ -33,7 +33,7 @@ public class SteamUser {
         sb.append("\nSteam Id: ").append(id);
         sb.append("\nRegistration time: ").append(timeRegister.format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss")));
         sb.append("\nGames: ");
-        for (SteamApp app : steamAppNames) {
+        for (SteamApp app : getSteamAppNames()) {
             sb.append("\n - ").append(app.getName());
         }
         sb.append("\nAvatar: ").append(avatarUrl);

@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.persistence.EntityNotFoundException;
+import javax.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -61,13 +62,17 @@ public class SteamInfo {
         return steamUserMapper.toShorInfo(steamUser);
     }
 
+    @Transactional
     public SteamUser getAllUserInfo(String userId) throws SteamApiException {
 
+        SteamUser steamUser;
         // register the user if he is not in the database
         if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
-            return registerUser(userId);
-        } else return steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
+            steamUser = registerUser(userId);
+        } else steamUser = steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
                 new EntityNotFoundException("Steam user not found"));
+        steamUser.getSteamAppNames().size(); // initialize "steamAppNames"
+        return steamUser;
     }
 
     private SteamUser registerUser(String userId) throws SteamApiException {
@@ -111,11 +116,9 @@ public class SteamInfo {
             steamAppSet.add(steamApp);
         }
 
-        System.out.println(2);
         steamAppRepo.saveAll(steamAppSet);
         user.setSteamAppNames(steamAppSet);
 
-        System.out.println(3);
         log.info("register games in database:" + steamAppSet.stream().map(steamAppMapper::toShortInfo).collect(Collectors.toSet()));
 
     }
