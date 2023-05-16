@@ -21,7 +21,6 @@ import jm.bot.steamActivityBot.mapper.SteamUserMapper;
 import jm.bot.steamActivityBot.repository.SteamAppRepo;
 import jm.bot.steamActivityBot.repository.SteamAppStatRepo;
 import jm.bot.steamActivityBot.repository.SteamUserRepo;
-import lombok.Generated;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -91,29 +90,35 @@ public class SteamInfo {
     public Map<LocalDate, Integer> getUserActivity(String userId) throws SteamApiException {
 
         // get a list of user's game ids
-        GetOwnedGamesRequest request = SteamWebApiRequestFactory.createGetOwnedGamesRequest(userId, true, true, new ArrayList<>());
-        GetOwnedGames ownedGames = client.processRequest(request);
-        List<Integer> gamesIdList = ownedGames.getResponse().getGames()
-                .stream()
-                .filter(game -> game.getPlaytimeForever() != 0)             // only games that the user has launched at least once
-                .filter(game -> game.getHasCommunityVisibleStats() != null) // only games in which the player has achievements
-                .map(Game::getAppid)
-                .toList();
+//        GetOwnedGamesRequest request = SteamWebApiRequestFactory.createGetOwnedGamesRequest(userId, true, true, new ArrayList<>());
+//        GetOwnedGames ownedGames = client.processRequest(request);
+//        List<Integer> gamesIdList = ownedGames.getResponse().getGames()
+//                .stream()
+//                .filter(game -> game.getPlaytimeForever() != 0)             // only games that the user has launched at least once
+//                .filter(game -> game.getHasCommunityVisibleStats() != null) // only games in which the player has achievements
+//                .map(Game::getAppid)
+//                .toList();
 
-//        if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
-//            registerUser(userId);
-//        }
+        if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
+            registerUser(userId);
+        }
 
-//        List<Long> userGames = steamUserRepo.findGamesByUserId(Long.valueOf(userId)).stream().map(SteamApp::getId).toList();
+        List<Long> userGamesWithAchievements = steamUserRepo.findGamesWithAchievementsByUserId(Long.valueOf(userId)).stream()
+                .map(SteamApp::getId).toList();
+        System.out.println(userGamesWithAchievements.size());
 
+        List<String> users = steamUserRepo.findGamesWithAchievementsByUserId(Long.valueOf(userId)).stream()
+                .map(SteamApp::getName).toList();
 
+        System.out.println(users);
 
         // get a list of unlocktime of all user achievements
         List<LocalDate> allUnLockTimeStepList = new ArrayList<>();
         try {
-            for (Integer appId : gamesIdList) {
-//            for (int i = 0; i < 10; i++) {
-//                int appId = gamesIdList.get(i);
+//            for (Integer appId : gamesIdList) {
+//            for (Long appId : userGamesWithAchievements) {
+            for (int i = 0; i < 10; i++) {
+                int appId = Math.toIntExact(userGamesWithAchievements.get(i));
                 System.out.println(appId);
                 GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(Math.toIntExact(appId), userId);
                 GetPlayerAchievements playerAchievements = client.processRequest(requestAch);
@@ -196,19 +201,19 @@ public class SteamInfo {
         SteamApp steamApp;
         for (Game game: games) {
             // check game in database
-            registerGame(game, steamUser);
+            registerGame(game);
             steamApp = steamAppRepo.findById(Long.valueOf(game.getAppid())).orElseThrow(() ->
                     new EntityNotFoundException("Steam app not found"));
+            registerStat(steamApp, steamUser, game);
             steamAppSet.add(steamApp);
         }
-//        steamAppRepo.saveAll(steamAppSet);
 
         log.info("register games in database:" + steamAppSet.stream().map(steamAppMapper::toShortInfo).collect(Collectors.toSet()));
         return steamAppSet;
 
     }
 
-    private void registerGame(Game game, SteamUser steamUser) {
+    private void registerGame(Game game) {
         // register game if it not on DB
         if (steamAppRepo.findById(Long.valueOf(game.getAppid())).isEmpty()) {
             SteamApp steamApp = SteamApp.builder()
@@ -218,7 +223,6 @@ public class SteamInfo {
                     .build();
 
             steamAppRepo.save(steamApp);
-            registerStat(steamApp,steamUser,game);
         }
     }
 

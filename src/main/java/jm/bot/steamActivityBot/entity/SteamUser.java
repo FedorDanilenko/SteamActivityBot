@@ -33,7 +33,7 @@ public class SteamUser {
 
     @ManyToMany
     @JoinTable(
-            name = "steam_app_stat",
+            name = "steamAppStat",
             joinColumns = @JoinColumn(name = "steam_id"),
             inverseJoinColumns = @JoinColumn(name = "game_id"))
     private Set<SteamApp> steamAppNames = new HashSet<>();

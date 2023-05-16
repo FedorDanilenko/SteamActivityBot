@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Entity(name = "steam_app_stat")
+@Entity(name = "steamAppStat")
 public class SteamAppStat {
 
     @Id
