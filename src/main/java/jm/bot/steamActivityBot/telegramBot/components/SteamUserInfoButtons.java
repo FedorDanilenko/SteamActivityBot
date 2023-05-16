@@ -3,7 +3,6 @@ package jm.bot.steamActivityBot.telegramBot.components;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
-import javax.persistence.criteria.CriteriaBuilder;
 import java.util.List;
 
 public class SteamUserInfoButtons {

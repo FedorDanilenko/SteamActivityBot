@@ -1,13 +1,21 @@
 package jm.bot.steamActivityBot.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.Set;
 
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @Entity(name = "steamUsers")
 public class SteamUser {
     @Id
@@ -25,10 +33,18 @@ public class SteamUser {
 
     @ManyToMany
     @JoinTable(
-            name = "steam_apps",
+            name = "steam_app_stat",
             joinColumns = @JoinColumn(name = "steam_id"),
             inverseJoinColumns = @JoinColumn(name = "game_id"))
-    private Set<SteamApp> steamAppNames;
+    private Set<SteamApp> steamAppNames = new HashSet<>();
+
+//    @ManyToMany (cascade = CascadeType.ALL)
+//    @JoinTable(
+//            name = "user_ach",
+//            joinColumns = @JoinColumn(name = "steam_id"),
+//            inverseJoinColumns = @JoinColumn(name = "ach_id")
+//    )
+//    private Set<Achievement> userAchievements = new HashSet<>();
 
 //    @Override
 //    public String toString() {

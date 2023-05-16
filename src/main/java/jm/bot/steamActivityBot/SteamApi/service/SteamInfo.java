@@ -14,18 +14,21 @@ import com.lukaspradel.steamapi.webapi.request.builders.SteamWebApiRequestFactor
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserAllInfo;
 import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.SteamApp;
+import jm.bot.steamActivityBot.entity.SteamAppStat;
 import jm.bot.steamActivityBot.entity.SteamUser;
 import jm.bot.steamActivityBot.mapper.SteamAppMapper;
 import jm.bot.steamActivityBot.mapper.SteamUserMapper;
 import jm.bot.steamActivityBot.repository.SteamAppRepo;
+import jm.bot.steamActivityBot.repository.SteamAppStatRepo;
 import jm.bot.steamActivityBot.repository.SteamUserRepo;
+import lombok.Generated;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.persistence.EntityNotFoundException;
-import javax.transaction.Transactional;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -40,16 +43,18 @@ public class SteamInfo {
     private final SteamUserMapper steamUserMapper;
     private final SteamAppRepo steamAppRepo;
     private final SteamAppMapper steamAppMapper;
+    private final SteamAppStatRepo steamAppStatRepo;
 
     private final SteamWebApiClient client;
 
     @Autowired
     public SteamInfo(SteamUserRepo steamUserRepo, SteamUserMapper steamUserMapper, SteamAppRepo steamAppRepo, SteamAppMapper steamAppMapper,
-                     @Value("${steam.key}") String steamKey) {
+                     SteamAppStatRepo steamAppStatRepo, @Value("${steam.key}") String steamKey) {
         this.steamUserRepo=steamUserRepo;
         this.steamUserMapper=steamUserMapper;
         this.steamAppRepo = steamAppRepo;
         this.steamAppMapper = steamAppMapper;
+        this.steamAppStatRepo = steamAppStatRepo;
         client = new SteamWebApiClient.SteamWebApiClientBuilder(steamKey).build();
     }
 
@@ -84,6 +89,7 @@ public class SteamInfo {
     }
 
     public Map<LocalDate, Integer> getUserActivity(String userId) throws SteamApiException {
+
         // get a list of user's game ids
         GetOwnedGamesRequest request = SteamWebApiRequestFactory.createGetOwnedGamesRequest(userId, true, true, new ArrayList<>());
         GetOwnedGames ownedGames = client.processRequest(request);
@@ -92,16 +98,24 @@ public class SteamInfo {
                 .filter(game -> game.getPlaytimeForever() != 0)             // only games that the user has launched at least once
                 .filter(game -> game.getHasCommunityVisibleStats() != null) // only games in which the player has achievements
                 .map(Game::getAppid)
-                .collect(Collectors.toList());
+                .toList();
+
+//        if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
+//            registerUser(userId);
+//        }
+
+//        List<Long> userGames = steamUserRepo.findGamesByUserId(Long.valueOf(userId)).stream().map(SteamApp::getId).toList();
+
+
 
         // get a list of unlocktime of all user achievements
         List<LocalDate> allUnLockTimeStepList = new ArrayList<>();
         try {
-            for (int appId : gamesIdList) {
+            for (Integer appId : gamesIdList) {
 //            for (int i = 0; i < 10; i++) {
 //                int appId = gamesIdList.get(i);
                 System.out.println(appId);
-                GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(appId, userId);
+                GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(Math.toIntExact(appId), userId);
                 GetPlayerAchievements playerAchievements = client.processRequest(requestAch);
                 List<LocalDate> unLockTimeStepList = playerAchievements.getPlayerstats().getAchievements()
                         .stream()
@@ -110,7 +124,7 @@ public class SteamInfo {
                         .map(a -> (Integer) a.get("unlocktime"))
                         .map(integer -> LocalDateTime.ofEpochSecond(integer, 0, ZoneOffset.UTC))
                         .map(LocalDateTime::toLocalDate)
-                        .collect(Collectors.toList());
+                        .toList();
                 allUnLockTimeStepList.addAll(unLockTimeStepList);
             }
         } catch (SteamApiException e) {
@@ -153,14 +167,16 @@ public class SteamInfo {
         String avatarUrl = userInfo.getResponse().getPlayers().get(0).getAvatarfull();
         Integer time = userInfo.getResponse().getPlayers().get(0).getTimecreated();
 
-        SteamUser steamUser = new SteamUser();
+        SteamUser steamUser = SteamUser.builder()
+                .id(Long.valueOf(userId))
+                .userNickName(userNickName)
+                .avatarUrl(avatarUrl)
+                .timeRegister(LocalDateTime.ofEpochSecond(time, 0, ZoneOffset.UTC))
+                .build();
 
-        steamUser.setId(Long.valueOf(userId));
-        steamUser.setUserNickName(userNickName);
-        steamUser.setAvatarUrl(avatarUrl);
-        steamUser.setTimeRegister(LocalDateTime.ofEpochSecond(time, 0, ZoneOffset.UTC));
-        steamUser.setSteamAppNames(registerApps(steamUser));
         steamUserRepo.save(steamUser);
+        steamUser.setSteamAppNames(registerApps(userId, steamUser));
+
 
         log.info("Register steam user in database: " + steamUserMapper.toShorInfo(steamUser));
 
@@ -169,9 +185,9 @@ public class SteamInfo {
     }
 
 
-    private Set<SteamApp> registerApps(SteamUser user) throws SteamApiException {
+    private Set<SteamApp> registerApps(String userId, SteamUser steamUser) throws SteamApiException {
 
-        GetOwnedGamesRequest ownedGamesRequest = SteamWebApiRequestFactory.createGetOwnedGamesRequest(String.valueOf(user.getId()),true,true, new ArrayList<>());
+        GetOwnedGamesRequest ownedGamesRequest = SteamWebApiRequestFactory.createGetOwnedGamesRequest(userId,true,true, new ArrayList<>());
         GetOwnedGames ownedGames = client.processRequest(ownedGamesRequest);
         List<Game> games = ownedGames.getResponse().getGames();
         System.out.println(games.size());
@@ -180,7 +196,7 @@ public class SteamInfo {
         SteamApp steamApp;
         for (Game game: games) {
             // check game in database
-            registerGame(game);
+            registerGame(game, steamUser);
             steamApp = steamAppRepo.findById(Long.valueOf(game.getAppid())).orElseThrow(() ->
                     new EntityNotFoundException("Steam app not found"));
             steamAppSet.add(steamApp);
@@ -192,17 +208,28 @@ public class SteamInfo {
 
     }
 
-    private void registerGame(Game game) {
+    private void registerGame(Game game, SteamUser steamUser) {
         // register game if it not on DB
         if (steamAppRepo.findById(Long.valueOf(game.getAppid())).isEmpty()) {
-            SteamApp steamApp = new SteamApp();
-
-            steamApp.setId(Long.valueOf(game.getAppid()));
-            steamApp.setName(game.getName());
-            steamApp.setSteamUsers(new HashSet<>());
+            SteamApp steamApp = SteamApp.builder()
+                    .id(Long.valueOf(game.getAppid()))
+                    .name(game.getName())
+                    .hasAsh(game.getHasCommunityVisibleStats() != null)
+                    .build();
 
             steamAppRepo.save(steamApp);
+            registerStat(steamApp,steamUser,game);
         }
+    }
+
+    private void registerStat(SteamApp steamApp, SteamUser steamUser, Game game) {
+        SteamAppStat steamAppStat = SteamAppStat.builder()
+                .steamUser(steamUser)
+                .steamApp(steamApp)
+                .allTimeSpent(game.getPlaytimeForever())
+                .build();
+
+        steamAppStatRepo.save(steamAppStat);
     }
 
 }
