@@ -18,6 +18,7 @@ import jm.bot.steamActivityBot.entity.SteamAppStat;
 import jm.bot.steamActivityBot.entity.SteamUser;
 import jm.bot.steamActivityBot.mapper.SteamAppMapper;
 import jm.bot.steamActivityBot.mapper.SteamUserMapper;
+import jm.bot.steamActivityBot.repository.AchievementRepo;
 import jm.bot.steamActivityBot.repository.SteamAppRepo;
 import jm.bot.steamActivityBot.repository.SteamAppStatRepo;
 import jm.bot.steamActivityBot.repository.SteamUserRepo;
@@ -43,17 +44,19 @@ public class SteamInfo {
     private final SteamAppRepo steamAppRepo;
     private final SteamAppMapper steamAppMapper;
     private final SteamAppStatRepo steamAppStatRepo;
+    private final AchievementRepo achievementRepo;
 
     private final SteamWebApiClient client;
 
     @Autowired
     public SteamInfo(SteamUserRepo steamUserRepo, SteamUserMapper steamUserMapper, SteamAppRepo steamAppRepo, SteamAppMapper steamAppMapper,
-                     SteamAppStatRepo steamAppStatRepo, @Value("${steam.key}") String steamKey) {
+                     SteamAppStatRepo steamAppStatRepo, AchievementRepo achievementRepo, @Value("${steam.key}") String steamKey) {
         this.steamUserRepo=steamUserRepo;
         this.steamUserMapper=steamUserMapper;
         this.steamAppRepo = steamAppRepo;
         this.steamAppMapper = steamAppMapper;
         this.steamAppStatRepo = steamAppStatRepo;
+        this.achievementRepo = achievementRepo;
         client = new SteamWebApiClient.SteamWebApiClientBuilder(steamKey).build();
     }
 
@@ -89,53 +92,19 @@ public class SteamInfo {
 
     public Map<LocalDate, Integer> getUserActivity(String userId) throws SteamApiException {
 
-        // get a list of user's game ids
-//        GetOwnedGamesRequest request = SteamWebApiRequestFactory.createGetOwnedGamesRequest(userId, true, true, new ArrayList<>());
-//        GetOwnedGames ownedGames = client.processRequest(request);
-//        List<Integer> gamesIdList = ownedGames.getResponse().getGames()
-//                .stream()
-//                .filter(game -> game.getPlaytimeForever() != 0)             // only games that the user has launched at least once
-//                .filter(game -> game.getHasCommunityVisibleStats() != null) // only games in which the player has achievements
-//                .map(Game::getAppid)
-//                .toList();
-
         if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
             registerUser(userId);
         }
 
-        List<Long> userGamesWithAchievements = steamUserRepo.findGamesWithAchievementsByUserId(Long.valueOf(userId)).stream()
-                .map(SteamApp::getId).toList();
-        System.out.println(userGamesWithAchievements.size());
-
-        List<String> users = steamUserRepo.findGamesWithAchievementsByUserId(Long.valueOf(userId)).stream()
-                .map(SteamApp::getName).toList();
-
-        System.out.println(users);
+//        List<Long> userGamesWithAchievements = steamUserRepo.findGamesWithAchievementsByUserId(Long.valueOf(userId)).stream()
+//                .map(SteamApp::getId).toList();
+//        System.out.println("games: " + userGamesWithAchievements.size());
 
         // get a list of unlocktime of all user achievements
-        List<LocalDate> allUnLockTimeStepList = new ArrayList<>();
-        try {
-//            for (Integer appId : gamesIdList) {
-//            for (Long appId : userGamesWithAchievements) {
-            for (int i = 0; i < 10; i++) {
-                int appId = Math.toIntExact(userGamesWithAchievements.get(i));
-                System.out.println(appId);
-                GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(Math.toIntExact(appId), userId);
-                GetPlayerAchievements playerAchievements = client.processRequest(requestAch);
-                List<LocalDate> unLockTimeStepList = playerAchievements.getPlayerstats().getAchievements()
-                        .stream()
-                        .filter(achievement -> achievement.getAchieved() != 0) // filter timestep for not achieved achievements
-                        .map(Achievement::getAdditionalProperties)
-                        .map(a -> (Integer) a.get("unlocktime"))
-                        .map(integer -> LocalDateTime.ofEpochSecond(integer, 0, ZoneOffset.UTC))
-                        .map(LocalDateTime::toLocalDate)
-                        .toList();
-                allUnLockTimeStepList.addAll(unLockTimeStepList);
-            }
-        } catch (SteamApiException e) {
-            System.out.println(e.getMessage());
-            throw new SteamApiException("ID: " + userId + "\nName: Profile is not public");
-        }
+        List<LocalDate> allUnLockTimeStepList = new ArrayList<>(achievementRepo.findBySteamUsersIdAndTimeRecAfter(Long.valueOf(userId), LocalDate.of(1970, 1, 1))
+                .stream().map(jm.bot.steamActivityBot.entity.Achievement::getTimeRec).toList());
+        System.out.println(allUnLockTimeStepList.size());
+
         System.out.println(allUnLockTimeStepList);
         Collections.sort(allUnLockTimeStepList);
         System.out.println(allUnLockTimeStepList);
@@ -181,6 +150,7 @@ public class SteamInfo {
 
         steamUserRepo.save(steamUser);
         steamUser.setSteamAppNames(registerApps(userId, steamUser));
+        registerAchievements(steamUser);
 
 
         log.info("Register steam user in database: " + steamUserMapper.toShorInfo(steamUser));
@@ -234,6 +204,26 @@ public class SteamInfo {
                 .build();
 
         steamAppStatRepo.save(steamAppStat);
+    }
+
+    private void registerAchievements(SteamUser steamUser) throws SteamApiException {
+        List<Long> userGamesWithAchievements = steamUserRepo.findGamesWithAchievementsByUserId(steamUser.getId()).stream()
+                .map(SteamApp::getId).toList();
+        for (Long game: userGamesWithAchievements) {
+            System.out.println(game);
+            GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(Math.toIntExact(game), String.valueOf(steamUser.getId()));
+            GetPlayerAchievements playerAchievements = client.processRequest(requestAch);
+            for (Achievement ach : playerAchievements.getPlayerstats().getAchievements()) {
+                jm.bot.steamActivityBot.entity.Achievement achievement = jm.bot.steamActivityBot.entity.Achievement.builder()
+                        .games(steamAppRepo.findById(game).orElseThrow(() ->
+                                new EntityNotFoundException("Steam app not found")))
+                        .steamUsers(steamUser)
+                        .achTitle(ach.getApiname())
+                        .timeRec(LocalDate.from(LocalDateTime.ofEpochSecond((Integer) ach.getAdditionalProperties().get("unlocktime"), 0, ZoneOffset.UTC)))
+                        .build();
+                achievementRepo.save(achievement);
+            }
+        }
     }
 
 }

@@ -41,8 +41,8 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
     private final UserRepo userRepo;
     private final SteamInfo steamInfo;
     private final SteamUserRepo steamUserRepo;
-    private static Map<Long, String> waitingCommands = new HashMap<>();
-    private static Map<Long, String> waitingId = new HashMap<>();
+    private static final Map<Long, String> waitingCommands = new HashMap<>();
+    private static final Map<Long, String> waitingId = new HashMap<>();
 
     final BotConfig botConfig;
 
@@ -145,26 +145,19 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
             }
         } else {
             switch (messageText) {
-                case "/start":
+                case "/start" -> {
                     registerUser(chat);
                     startCommandReceived(chatId, chat.getFirstName());
-                    break;
-                case "/help":
+                }
+                case "/help" -> {
                     prepareAndSendMessage(chatId, HELP_INFO);
                     log.info("send help info user: " + chatId);
-                    break;
-
-                case "/getSteamUserInfo":
-                    getSteamUserId(chatId, messageText);
-//                    waitingCommands.put(chatId, messageText);
-                    break;
-                case "/getUserActivity":
-                    getSteamUserId(chatId, messageText);
-//                    waitingCommands.put(chatId, messageText);
-                    break;
-                default:
+                }
+                case "/getSteamUserInfo", "/getUserActivity" -> getSteamUserId(chatId, messageText);
+                default -> {
                     prepareAndSendMessage(chatId, "Oh No Bro! I don't know this command.");
                     log.info("Unexpected message");
+                }
             }
         }
     }

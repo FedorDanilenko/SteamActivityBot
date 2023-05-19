@@ -7,9 +7,7 @@ import lombok.Data;
 import jakarta.persistence.*;
 import lombok.NoArgsConstructor;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 @Data
 @Builder
@@ -31,8 +29,8 @@ public class SteamApp {
     @ManyToMany(mappedBy = "steamAppNames")
     private Set<SteamUser> steamUsers = new HashSet<>();
 
-//    @OneToMany(mappedBy = "games")
-//    private List<Achievement> achievements;
+    @OneToMany(mappedBy = "games")
+    private List<Achievement> achievements = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {

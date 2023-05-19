@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -37,6 +39,9 @@ public class SteamUser {
             joinColumns = @JoinColumn(name = "steam_id"),
             inverseJoinColumns = @JoinColumn(name = "game_id"))
     private Set<SteamApp> steamAppNames = new HashSet<>();
+
+    @OneToMany(mappedBy = "steamUsers")
+    private List<Achievement> achievements = new ArrayList<>();
 
 //    @ManyToMany (cascade = CascadeType.ALL)
 //    @JoinTable(
