@@ -99,7 +99,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                 executeEditMessageText(answer, chatId, messageId);
                 log.info("get short info user " + chatId + " about steamuser " + steamUserInfo.getId());
             } else if (callbackData.equals("all user info")) {
-                SteamUserAllInfo steamUserInfo = steamInfo.getAllUserInfo(waitingId.remove(chatId)); //76561198045167898
+                SteamUserAllInfo steamUserInfo = steamInfo.getAllUserInfo(waitingId.remove(chatId));
                 String answer = String.valueOf(steamUserInfo);
                 executeEditMessageText(String.valueOf(answer), chatId, messageId);
                 log.info("get All info user " + chatId + " about steamuser " + steamUserInfo.getId());
@@ -131,6 +131,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                                 new EntityNotFoundException("Steam user not found")).getUserNickName();
                         prepareAndSendMessage(chatId, "Steam Activity for user " + steamUserName);
                         sendFile(chatId, PlotCreator.createPlotPng(ach));
+                        log.info("send activity statistic on user: " + chatId);
                         return;
                     }
             }
@@ -182,7 +183,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         message.setText("Enter steam user ID");
         executeMessage(message);
         waitingCommands.put(chatId, messageText);
-        log.info("sent a request to get a user steam user id: " + chatId);
+        log.info("Sent a request to get a user steamId by user id: " + chatId);
     }
 
 
@@ -194,7 +195,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         message.setReplyMarkup(SteamUserInfoButtons.inlineMarkup());
 
         executeMessage(message);
-        log.info("send command getSteamInfo user: " + chatId);
+        log.info("send command getSteamInfo by user: " + chatId);
     }
 
 
@@ -221,7 +222,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
 
         prepareAndSendMessage(chatId, answer);
         Thread.sleep(2500);
-        sendGif(chatId, "https://media.tenor.com/dti1tvshXAoAAAAd/muscle-man.gif"); // "CgACAgQAAxkBAAEgu61kVorN56RKTm4FyMaPG0CItmPQIgAC7gIAAnSurVHvaRDgfnDS7C8E"
+        sendGif(chatId, "https://media.tenor.com/dti1tvshXAoAAAAd/muscle-man.gif");
         prepareAndSendMessage(chatId, "MY MOM!!!");
         log.info("Replied to user " + name);
 
@@ -232,6 +233,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         animation.setChatId(String.valueOf(chatId));
         animation.setAnimation(new InputFile(fileId));
         execute(animation);
+        log.info("send animation on user: " + chatId);
     }
 
     private void executeMessage(SendMessage msg) {
@@ -257,6 +259,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         document.setDocument(new InputFile(file));
         execute(document);
         file.delete();
+        log.info("send file on user: " + chatId);
     }
 
 }

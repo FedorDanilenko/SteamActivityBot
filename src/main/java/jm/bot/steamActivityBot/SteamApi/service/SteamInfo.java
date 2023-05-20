@@ -16,7 +16,6 @@ import jm.bot.steamActivityBot.dto.steamUserDto.SteamUserShortInfo;
 import jm.bot.steamActivityBot.entity.SteamApp;
 import jm.bot.steamActivityBot.entity.SteamAppStat;
 import jm.bot.steamActivityBot.entity.SteamUser;
-import jm.bot.steamActivityBot.mapper.SteamAppMapper;
 import jm.bot.steamActivityBot.mapper.SteamUserMapper;
 import jm.bot.steamActivityBot.repository.AchievementRepo;
 import jm.bot.steamActivityBot.repository.SteamAppRepo;
@@ -33,7 +32,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -42,19 +40,17 @@ public class SteamInfo {
     private final SteamUserRepo steamUserRepo;
     private final SteamUserMapper steamUserMapper;
     private final SteamAppRepo steamAppRepo;
-    private final SteamAppMapper steamAppMapper;
     private final SteamAppStatRepo steamAppStatRepo;
     private final AchievementRepo achievementRepo;
 
     private final SteamWebApiClient client;
 
     @Autowired
-    public SteamInfo(SteamUserRepo steamUserRepo, SteamUserMapper steamUserMapper, SteamAppRepo steamAppRepo, SteamAppMapper steamAppMapper,
+    public SteamInfo(SteamUserRepo steamUserRepo, SteamUserMapper steamUserMapper, SteamAppRepo steamAppRepo,
                      SteamAppStatRepo steamAppStatRepo, AchievementRepo achievementRepo, @Value("${steam.key}") String steamKey) {
         this.steamUserRepo=steamUserRepo;
         this.steamUserMapper=steamUserMapper;
         this.steamAppRepo = steamAppRepo;
-        this.steamAppMapper = steamAppMapper;
         this.steamAppStatRepo = steamAppStatRepo;
         this.achievementRepo = achievementRepo;
         client = new SteamWebApiClient.SteamWebApiClientBuilder(steamKey).build();
@@ -71,7 +67,6 @@ public class SteamInfo {
              steamUser = registerUser(userId);
         } else steamUser = steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
                 new EntityNotFoundException("Steam user not found"));
-        System.out.println(steamUser.getSteamAppNames().size());
 
         return steamUserMapper.toShorInfo(steamUser);
     }
@@ -100,16 +95,14 @@ public class SteamInfo {
         // get a list of unlocktime of all user achievements
         List<LocalDate> allUnLockTimeStepList = new ArrayList<>(achievementRepo.findBySteamUsersIdAndTimeRecAfter(Long.valueOf(userId), LocalDate.of(1970, 1, 1))
                 .stream().map(jm.bot.steamActivityBot.entity.Achievement::getTimeRec).toList());
-        System.out.println(allUnLockTimeStepList.size());
 
-        System.out.println(allUnLockTimeStepList);
+        log.info("got a list of unlocktime of all user achievements");
 
         // Count days
         Map<LocalDate, Integer> timeStampCount = new HashMap<>();
         allUnLockTimeStepList.forEach(date -> {
             timeStampCount.put(date, timeStampCount.getOrDefault(date, 0) + 1);
         });
-        System.out.println(timeStampCount);
 
         // sort by date
         List<Map.Entry<LocalDate, Integer>> list = new ArrayList<>(timeStampCount.entrySet());
@@ -121,9 +114,8 @@ public class SteamInfo {
             sortedMap.put(entry.getKey(), entry.getValue());
         }
 
-        System.out.println(sortedMap);
+        log.info("got a sorted list of unlocked achievement dates");
         return sortedMap;
-
     }
 
 
@@ -145,10 +137,11 @@ public class SteamInfo {
                 .build();
 
         steamUserRepo.save(steamUser);
-        steamUser.setSteamAppNames(registerApps(userId, steamUser));
-        registerAchievements(steamUser);
 
         log.info("Register steam user in database: " + steamUserMapper.toShorInfo(steamUser));
+
+        steamUser.setSteamAppNames(registerApps(userId, steamUser));
+        registerAchievements(steamUser);
 
         return steamUser;
 
@@ -160,7 +153,6 @@ public class SteamInfo {
         GetOwnedGamesRequest ownedGamesRequest = SteamWebApiRequestFactory.createGetOwnedGamesRequest(userId,true,true, new ArrayList<>());
         GetOwnedGames ownedGames = client.processRequest(ownedGamesRequest);
         List<Game> games = ownedGames.getResponse().getGames();
-        System.out.println(games.size());
 
         Set<SteamApp> steamAppSet = new HashSet<>();
         SteamApp steamApp;
@@ -173,9 +165,7 @@ public class SteamInfo {
             steamAppSet.add(steamApp);
         }
 
-        log.info("register games in database:" + steamAppSet.stream().map(steamAppMapper::toShortInfo).collect(Collectors.toSet()));
         return steamAppSet;
-
     }
 
     private void registerGame(Game game) {
@@ -188,6 +178,7 @@ public class SteamInfo {
                     .build();
 
             steamAppRepo.save(steamApp);
+            log.info("register games in database: " + steamApp.getName() + " - " + steamApp.getId());
         }
     }
 
@@ -199,6 +190,7 @@ public class SteamInfo {
                 .build();
 
         steamAppStatRepo.save(steamAppStat);
+        log.info("register user stat by game. user: " + steamUser.getUserNickName() + " game: " + steamApp.getName());
     }
 
     private void registerAchievements(SteamUser steamUser) throws SteamApiException {
@@ -208,7 +200,6 @@ public class SteamInfo {
 
         // get achievements by all user game
         for (Long appId : userGamesWithAchievements) {
-            System.out.println(appId);
             GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(Math.toIntExact(appId), String.valueOf(steamUser.getId()));
             GetPlayerAchievements playerAchievements = client.processRequest(requestAch);
             for (Achievement ach : playerAchievements.getPlayerstats().getAchievements()) {
@@ -221,6 +212,7 @@ public class SteamInfo {
                         .build();
                 achievementRepo.save(achievement);
             }
+            log.info("register user achievements by game. user: " + steamUser.getUserNickName() + " game: " + appId);
         }
     }
 
