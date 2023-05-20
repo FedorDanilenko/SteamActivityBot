@@ -114,14 +114,14 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         //
         if (waitingCommands.containsKey(chatId)) {
             switch (waitingCommands.get(chatId)) {
-                case "/getSteamUserInfo":
+                case "/getsteamuserinfo":
                     waitingId.put(chatId,messageText);
                     waitingCommands.remove(chatId);
                     if (messageText.matches("\\d+")) {
                         getSteamUserInfo(chatId);
                         return;
                     }
-                case "/getUserActivity":
+                case "/getuseractivity":
                     waitingCommands.remove(chatId);
                     if (messageText.matches("\\d+")) {
                         prepareAndSendMessage(chatId, "Scanning your games");
@@ -153,7 +153,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                     prepareAndSendMessage(chatId, HELP_INFO);
                     log.info("send help info user: " + chatId);
                 }
-                case "/getSteamUserInfo", "/getUserActivity" -> getSteamUserId(chatId, messageText);
+                case "/getsteamuserinfo", "/getuseractivity" -> getSteamUserId(chatId, messageText);
                 default -> {
                     prepareAndSendMessage(chatId, "Oh No Bro! I don't know this command.");
                     log.info("Unexpected message");
