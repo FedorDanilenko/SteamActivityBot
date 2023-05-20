@@ -66,7 +66,7 @@ public class SteamInfo {
 
         SteamUser steamUser;
 
-        // register the user if he is not in the database
+        // register the steam user if he is not in the database
         if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
              steamUser = registerUser(userId);
         } else steamUser = steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
@@ -81,7 +81,7 @@ public class SteamInfo {
     public SteamUserAllInfo getAllUserInfo(String userId) throws SteamApiException {
 
         SteamUser steamUser;
-        // register the user if he is not in the database
+        // register the steam user if he is not in the database
         if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
             steamUser = registerUser(userId);
         } else steamUser = steamUserRepo.findById(Long.valueOf(userId)).orElseThrow(() ->
@@ -92,21 +92,16 @@ public class SteamInfo {
 
     public Map<LocalDate, Integer> getUserActivity(String userId) throws SteamApiException {
 
+        // register the steam user if he is not in the database
         if (steamUserRepo.findById(Long.valueOf(userId)).isEmpty()) {
             registerUser(userId);
         }
-
-//        List<Long> userGamesWithAchievements = steamUserRepo.findGamesWithAchievementsByUserId(Long.valueOf(userId)).stream()
-//                .map(SteamApp::getId).toList();
-//        System.out.println("games: " + userGamesWithAchievements.size());
 
         // get a list of unlocktime of all user achievements
         List<LocalDate> allUnLockTimeStepList = new ArrayList<>(achievementRepo.findBySteamUsersIdAndTimeRecAfter(Long.valueOf(userId), LocalDate.of(1970, 1, 1))
                 .stream().map(jm.bot.steamActivityBot.entity.Achievement::getTimeRec).toList());
         System.out.println(allUnLockTimeStepList.size());
 
-        System.out.println(allUnLockTimeStepList);
-        Collections.sort(allUnLockTimeStepList);
         System.out.println(allUnLockTimeStepList);
 
         // Count days
@@ -116,6 +111,7 @@ public class SteamInfo {
         });
         System.out.println(timeStampCount);
 
+        // sort by date
         List<Map.Entry<LocalDate, Integer>> list = new ArrayList<>(timeStampCount.entrySet());
 
         list.sort(Map.Entry.comparingByKey());
@@ -151,7 +147,6 @@ public class SteamInfo {
         steamUserRepo.save(steamUser);
         steamUser.setSteamAppNames(registerApps(userId, steamUser));
         registerAchievements(steamUser);
-
 
         log.info("Register steam user in database: " + steamUserMapper.toShorInfo(steamUser));
 
@@ -207,15 +202,18 @@ public class SteamInfo {
     }
 
     private void registerAchievements(SteamUser steamUser) throws SteamApiException {
+        // get list id of games with achievements
         List<Long> userGamesWithAchievements = steamUserRepo.findGamesWithAchievementsByUserId(steamUser.getId()).stream()
                 .map(SteamApp::getId).toList();
-        for (Long game: userGamesWithAchievements) {
-            System.out.println(game);
-            GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(Math.toIntExact(game), String.valueOf(steamUser.getId()));
+
+        // get achievements by all user game
+        for (Long appId : userGamesWithAchievements) {
+            System.out.println(appId);
+            GetPlayerAchievementsRequest requestAch = SteamWebApiRequestFactory.createGetPlayerAchievementsRequest(Math.toIntExact(appId), String.valueOf(steamUser.getId()));
             GetPlayerAchievements playerAchievements = client.processRequest(requestAch);
             for (Achievement ach : playerAchievements.getPlayerstats().getAchievements()) {
                 jm.bot.steamActivityBot.entity.Achievement achievement = jm.bot.steamActivityBot.entity.Achievement.builder()
-                        .games(steamAppRepo.findById(game).orElseThrow(() ->
+                        .steamApp(steamAppRepo.findById(appId).orElseThrow(() ->
                                 new EntityNotFoundException("Steam app not found")))
                         .steamUsers(steamUser)
                         .achTitle(ach.getApiname())

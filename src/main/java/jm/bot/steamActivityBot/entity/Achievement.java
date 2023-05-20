@@ -27,8 +27,8 @@ public class Achievement {
     private LocalDate timeRec;
 
     @ManyToOne
-    @JoinColumn(name = "game_id", nullable = false)
-    private SteamApp games;
+    @JoinColumn(name = "app_id", nullable = false)
+    private SteamApp steamApp;
 
     @ManyToOne
     @JoinColumn(name = "steam_user_id", nullable = false)

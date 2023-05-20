@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 
 import jakarta.transaction.Transactional;
 
+import java.time.LocalDate;
+
 @Component
 public class SteamUserMapper {
 
@@ -28,6 +30,7 @@ public class SteamUserMapper {
                 .avatar(steamUser.getAvatarUrl())
                 .timeRegister(steamUser.getTimeRegister())
                 .steamAppNames(steamUser.getSteamAppNames())
+                .TotalAchievements(steamUser.getAchievements().stream().filter(t -> t.getTimeRec().isAfter(LocalDate.of(1970, 1, 1))).toList().size())
                 .build();
     }
 

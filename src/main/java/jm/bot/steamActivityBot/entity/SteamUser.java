@@ -8,7 +8,6 @@ import jakarta.persistence.*;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -30,14 +29,14 @@ public class SteamUser {
     @Column(name = "avatar")
     private String avatarUrl;
 
-    @Column(name = "register")
+    @Column(name = "registerTime")
     private LocalDateTime timeRegister;
 
     @ManyToMany
     @JoinTable(
             name = "steamAppStat",
             joinColumns = @JoinColumn(name = "steam_id"),
-            inverseJoinColumns = @JoinColumn(name = "game_id"))
+            inverseJoinColumns = @JoinColumn(name = "app_id"))
     private Set<SteamApp> steamAppNames = new HashSet<>();
 
     @OneToMany(mappedBy = "steamUsers")

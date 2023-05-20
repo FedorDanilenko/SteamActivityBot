@@ -11,7 +11,6 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -19,19 +18,14 @@ public class PlotCreator {
 
 
     public static File createPlotPng(Map<LocalDate,Integer> data) throws IOException {
-//        Map<String, Integer> data = new HashMap<>();
-//        data.put("A", 5);
-//        data.put("B", 3);
-//        data.put("C", 7);
-//        data.put("D", 1);
 
-        // Создаем dataset для графика
+        // create dataset for plot
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
         for (LocalDate key : data.keySet()) {
             dataset.addValue(data.get(key), "Count", key);
         }
 
-        // Создаем график
+        // create plot
         JFreeChart chart = ChartFactory.createBarChart(
                 "Steam Activity",
                 "Date",
@@ -42,18 +36,16 @@ public class PlotCreator {
                 true,
                 false);
 
-        // Настраиваем цвета
+        // color settings
         chart.setBackgroundPaint(Color.white);
         chart.getCategoryPlot().setBackgroundPaint(Color.lightGray);
         chart.getCategoryPlot().setRangeGridlinePaint(Color.white);
 
-        // Размер графика
-        int width = 3840; /* ширина в пикселях */
-        int height = 2160; /* высота в пикселях */
-        Dimension dim = new Dimension(width, height);
-//        chart.draw(, new Rectangle(0,0,1200,600));
+        // plot size
+        int width = 3840; // width px
+        int height = 2160; // height px
 
-        // Сохраняем график в файл
+        // save plot in png file
         File file = new File("graph.png");
         ChartUtils.saveChartAsPNG(file, chart, width, height);
 

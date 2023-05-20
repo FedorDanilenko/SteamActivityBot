@@ -75,7 +75,6 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
     public void onUpdateReceived(@NonNull Update update) {
         long chatId;
         long messageId;
-        String steamId;
         Chat chat;
         String receivedMessage;
 
@@ -111,12 +110,13 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
 
     @SneakyThrows
     private void botAnswerUtil(String messageText, long chatId, Chat chat) {
-        //
+        // check waiting command in memory
         if (waitingCommands.containsKey(chatId)) {
             switch (waitingCommands.get(chatId)) {
                 case "/getsteamuserinfo":
                     waitingId.put(chatId,messageText);
                     waitingCommands.remove(chatId);
+                    // check id is number
                     if (messageText.matches("\\d+")) {
                         getSteamUserInfo(chatId);
                         return;
@@ -136,6 +136,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
             }
         }
 
+        // commands for admin
         if (messageText.contains("/sendAll") && botConfig.getOwnerId() == chatId) {
             var textToSend = messageText.substring(messageText.indexOf(" "));
             var users = userRepo.findAll();
@@ -156,7 +157,7 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                 case "/getsteamuserinfo", "/getuseractivity" -> getSteamUserId(chatId, messageText);
                 default -> {
                     prepareAndSendMessage(chatId, "Oh No Bro! I don't know this command.");
-                    log.info("Unexpected message");
+                    log.info("Unexpected message: " + messageText);
                 }
             }
         }
@@ -174,7 +175,8 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
         }
     }
 
-    private void getSteamUserId(long chatId,String messageText) {
+
+    private void getSteamUserId(long chatId, String messageText) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText("Enter steam user ID");

@@ -9,25 +9,23 @@ import jakarta.persistence.Id;
 import java.sql.Timestamp;
 
 @Data
-@Entity(name="usersDataTable")
+@Entity(name="botUserData")
 public class BotUser {
 
     @Id
     @Column(name= "id")
     private Long chatId;
 
-    @Column(name="firstname")
+    @Column(name="firstName")
     private String firstName;
 
-    @Column(name="lastname")
+    @Column(name="lastName")
     private String lastName;
 
-    @Column(name="username")
+    @Column(name="userName")
     private String userName;
 
-    @Column(name = "registertime")
+    @Column(name = "registerTime")
     private Timestamp startTime;
-
-
 
 }

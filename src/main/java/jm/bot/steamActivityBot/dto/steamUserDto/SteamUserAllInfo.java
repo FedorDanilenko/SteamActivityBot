@@ -1,13 +1,11 @@
 package jm.bot.steamActivityBot.dto.steamUserDto;
 
-import com.lukaspradel.steamapi.data.json.ownedgames.Game;
 import jm.bot.steamActivityBot.entity.SteamApp;
 import lombok.*;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Set;
 
 @Component
@@ -22,7 +20,7 @@ public class SteamUserAllInfo {
     private String avatar;
     private LocalDateTime timeRegister;
     private Set<SteamApp> steamAppNames;
-//    private int TotalAchievements;
+    private int TotalAchievements;
 
 
     @Override
@@ -32,6 +30,7 @@ public class SteamUserAllInfo {
         sb.append("\nSteam Id: ").append(id);
         sb.append("\nRegistration time: ").append(timeRegister.format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss")));
         sb.append("\nGames count:").append(getSteamAppNames().size());
+        sb.append(("\nCount of open achievements: ")).append(TotalAchievements);
         for (SteamApp app : getSteamAppNames()) {
             sb.append("\n - ").append(app.getName());
         }

@@ -13,14 +13,14 @@ import java.util.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity(name = "Games")
+@Entity(name = "steamApps")
 public class SteamApp {
 
     @Id
-    @Column(name = "gameId")
+    @Column(name = "appId")
     private Long id;
 
-    @Column(name = "gameName")
+    @Column(name = "appName")
     private String name;
 
     @Column(name = "has_achievements")
@@ -29,14 +29,13 @@ public class SteamApp {
     @ManyToMany(mappedBy = "steamAppNames")
     private Set<SteamUser> steamUsers = new HashSet<>();
 
-    @OneToMany(mappedBy = "games")
+    @OneToMany(mappedBy = "steamApp")
     private List<Achievement> achievements = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof SteamApp)) return false;
-        SteamApp steamApp = (SteamApp) o;
+        if (!(o instanceof SteamApp steamApp)) return false;
         return Objects.equals(getId(), steamApp.getId());
     }
 
@@ -44,6 +43,5 @@ public class SteamApp {
     public int hashCode() {
         return Objects.hash(getId());
     }
-
 
 }

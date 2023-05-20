@@ -10,6 +10,7 @@ public class SteamUserInfoButtons {
     private static final InlineKeyboardButton SHOT_INFO = new InlineKeyboardButton("Short");
     private static final InlineKeyboardButton ALL_INFO = new InlineKeyboardButton("All");
 
+    // buttons for getSteamUserInfo
     public static InlineKeyboardMarkup inlineMarkup() {
         SHOT_INFO.setCallbackData("short user info");
         ALL_INFO.setCallbackData("all user info");

@@ -22,7 +22,7 @@ public class SteamAppStat {
     private SteamUser steamUser;
 
     @ManyToOne
-    @JoinColumn(name = "game_id")
+    @JoinColumn(name = "app_id")
     private SteamApp steamApp;
 
     @Column(name = "time_spent")
