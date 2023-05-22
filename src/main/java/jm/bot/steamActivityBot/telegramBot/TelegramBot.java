@@ -145,6 +145,9 @@ public class TelegramBot extends TelegramLongPollingBot implements BotCommands {
                 prepareAndSendMessage(user.getChatId(), textToSend);
                 log.info("Send text all users: " + textToSend);
             }
+        } else if (messageText.contains("/update") && botConfig.getOwnerId() == chatId) {
+            steamInfo.updateDatabase();
+            prepareAndSendMessage(chatId, "updateDatabase");
         } else {
             switch (messageText) {
                 case "/start" -> {

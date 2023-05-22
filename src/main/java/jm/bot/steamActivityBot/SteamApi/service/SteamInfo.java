@@ -85,6 +85,10 @@ public class SteamInfo {
         return steamUserMapper.toAllInfo(steamUser);
     }
 
+    public void updateDatabase() {
+
+    }
+
     public Map<LocalDate, Integer> getUserActivity(String userId) throws SteamApiException {
 
         // register the steam user if he is not in the database
